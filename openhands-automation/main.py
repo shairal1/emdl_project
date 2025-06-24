@@ -12,11 +12,11 @@ from pathlib import Path
 from typing import Callable, Dict, List
 
 PROMPT = """\
-Can you please identify potential issues in this pipeline and fix them?
+Can you please identify potential issues in this pipeline and fix them? 
 
 ##CODE##
 
-Please write the corrected code to ##OUTPUT_FILE##
+Please write the corrected code to ##OUTPUT_FILE## and summary of your fixes in the start of the file as comments.
 
 You must not run any commands externaly, you just write the file to fixed.py, you have nothing to do with data or util.py anything.
 Don't prompt me to run any commands, just write the file to fixed.py. I trust current directory.
@@ -31,6 +31,10 @@ def gather_examples(root: Path) -> List[Dict[str, str]]:
     examples: List[Dict[str, str]] = []
     for script in root.glob("pipelines/*/example-0.py"):
         try:
+            fixed_path = script.parent / "fixed.py"
+            if fixed_path.exists():
+                logging.info("Skipping %s, already has fixed.py", script.relative_to(root))
+                continue
             content = script.read_text(encoding="utf-8")
             stripped = "\n".join(
                 line for line in content.splitlines() if not line.lstrip().startswith("#")
