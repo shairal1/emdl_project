@@ -1,0 +1,5 @@
+[security]
+confirmation_mode = false
+
+[core]
+workspace_base = ""
