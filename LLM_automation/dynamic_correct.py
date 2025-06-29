@@ -147,10 +147,10 @@ def log_classification_report_from_string(
 
 
 
-def main(filepath: str = "pipeline.py"):
+def main(filepath: str = "test_pipeline/pipeline.py"):
     """Main function to run the pipeline and fix it if it fails."""
     orig_file = filepath
-    fixed_file = "pipeline_fixed.py"
+    fixed_file = "test_pipeline/pipeline_fixed.py"
 
     with open(orig_file, "r", encoding="utf-8") as f:
         code = f.read() 
