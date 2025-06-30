@@ -3,7 +3,7 @@ import re
 from time import sleep
 import mlflow
 from google import genai
-from find_errors import ask_gemini_to_find_problems
+from LLM_detection.find_errors import ask_gemini_to_find_problems
 import json
 import io
 from contextlib import redirect_stdout
