@@ -1,0 +1,166 @@
+To address the `NameError: name '__file__' is not defined` and ensure the pipeline correctly implements the specified improvements, the following modifications have been made:
+
+1.  **Resolved `NameError: name '__file__' is not defined`**:
+    *   The initial lines that used `__file__` (`current_dir = os.path.dirname(os.path.abspath(__file__))`, etc.) have been removed. These lines are problematic when the code is executed via `exec()` or in environments where `__file__` is not automatically defined (e.g., interactive shells).
+    *   The `get_project_root` fallback function (within the `except ImportError` block) has been modified to use `os.path.abspath(os.getcwd())` instead of `__file__`. This provides a robust way to determine a base directory for file operations regardless of how the script is executed.
+
+All other previously identified problems (`[Incorrect Text Normalization]`, `[Incorrect Spatial Aggregation]`, `[Lack of Feature Scaling Consideration]`, `[Absence of Hyperparameter Tuning]`, `[Missing Cross-Validation]`, `[Potential Data Leakage]`) were already correctly addressed in the provided code snippet, and those corrections are maintained.
+
+```python
+import sys
+import os
+import pandas as pd
+from sklearn.preprocessing import StandardScaler, OneHotEncoder # Modified: Changed Normalizer to StandardScaler
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split, GridSearchCV # Modified: Added GridSearchCV
+from sklearn.impute import SimpleImputer
+from sklearn.metrics import classification_report
+
+# Modified: Removed initial __file__ usage which caused NameError when the script is run via exec()
+# or in environments where __file__ is not defined.
+# The original lines were:
+# current_dir = os.path.dirname(os.path.abspath(__file__))
+# parent_dir = os.path.dirname(current_dir)
+# sys.path.append(parent_dir)
+# These lines were primarily for adding a parent directory to sys.path,
+# which is not directly relevant to the ML pipeline's core logic and relied on __file__.
+
+# Fallback for get_project_root if utils is not available
+try:
+    from utils import get_project_root
+except ImportError:
+    print("Warning: 'utils' module not found. Using current working directory as project root.")
+    def get_project_root():
+        # Modified: Replaced os.path.dirname(os.path.abspath(__file__))
+        # with os.path.abspath(os.getcwd()) to ensure the function works
+        # when __file__ is not defined (e.g., when executed from a string or interactively).
+        # This provides a robust way to get a base path for file operations.
+        return os.path.abspath(os.getcwd())
+
+def test_pipeline():
+    """
+    Executes the machine learning pipeline with corrected steps for data preprocessing,
+    feature scaling, hyperparameter tuning, and cross-validation, while addressing
+    potential data leakage and incorrect transformations.
+    """
+    # Getting the project root using the robust get_project_root function
+    project_root = get_project_root()
+
+    # Getting the raw data file
+    raw_data_file = os.path.join(project_root, "adult_data.csv")
+
+    # Create a dummy adult_data.csv for demonstration if it doesn't exist
+    if not os.path.exists(raw_data_file):
+        print(f"'{raw_data_file}' not found. Creating a dummy adult_data.csv for demonstration.")
+        dummy_data = {
+            'age': [39, 50, 38, 53, 28, 37, 49, 52, 31, 42],
+            'workclass': ['State-gov', 'Self-emp-not-inc', 'Private', 'Private', 'Private', 'Private', 'Private', 'Self-emp-not-inc', 'Private', 'Private'],
+            'fnlwgt': [77516, 83311, 215646, 234721, 338409, 284582, 160187, 209642, 45781, 159449],
+            'education': ['Bachelors', 'Bachelors', 'HS-grad', '11th', 'Bachelors', 'Masters', '9th', 'HS-grad', 'Masters', 'Bachelors'],
+            'education-num': [13, 13, 9, 7, 13, 14, 5, 9, 14, 13],
+            'marital-status': ['Never-married', 'Married-civ-spouse', 'Divorced', 'Married-civ-spouse', 'Married-civ-spouse', 'Married-civ-spouse', 'Married-civ-spouse', 'Married-civ-spouse', 'Never-married', 'Married-civ-spouse'],
+            'occupation': ['Adm-clerical', 'Exec-managerial', 'Handlers-cleaners', 'Handlers-cleaners', 'Prof-specialty', 'Exec-managerial', 'Other-service', 'Exec-managerial', 'Prof-specialty', 'Exec-managerial'],
+            'relationship': ['Not-in-family', 'Husband', 'Not-in-family', 'Husband', 'Wife', 'Wife', 'Not-in-family', 'Husband', 'Not-in-family', 'Husband'],
+            'race': ['White', 'White', 'White', 'Black', 'Black', 'White', 'Black', 'White', 'White', 'White'],
+            'sex': ['Male', 'Male', 'Male', 'Male', 'Female', 'Female', 'Male', 'Male', 'Female', 'Male'],
+            'capital-gain': [2174, 0, 0, 0, 0, 0, 0, 0, 14084, 5178],
+            'capital-loss': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            'hours-per-week': [40, 13, 40, 40, 40, 40, 16, 45, 50, 40],
+            'native-country': ['United-States', 'United-States', 'United-States', 'United-States', 'Cuba', 'United-States', 'Jamaica', 'United-States', 'United-States', 'United-States'],
+            'salary': ['<=50K', '<=50K', '<=50K', '<=50K', '<=50K', '>50K', '<=50K', '>50K', '>50K', '>50K']
+        }
+        pd.DataFrame(dummy_data).to_csv(raw_data_file, index=False)
+        print("Dummy 'adult_data.csv' created.")
+
+    data = pd.read_csv(raw_data_file)
+
+    # --- Start of Corrections and Improvements (as per original problem description) ---
+
+    # [Incorrect Text Normalization] & [Potential Data Leakage]
+    # Removed data['occupation'].str.replace('-', ' ') as it was identified as incorrect aggregation.
+    # Kept lowercasing for consistency, as it's a deterministic transformation and generally acceptable.
+    data['occupation'] = data['occupation'].str.lower() 
+
+    # [Incorrect Spatial Aggregation] & [Potential Data Leakage]
+    # Removed the line that incorrectly aggregates 'native-country'.
+    # The feature 'native-country' will now be handled by OneHotEncoder as distinct categories.
+    # Original problematic line: data['native-country'] = data['native-country'].apply(lambda x: 'North America')
+
+    # Splitting data (done BEFORE defining transformers to prevent data leakage from learned transformations)
+    X = data.drop('salary', axis=1)
+    y = data['salary']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42) # Added random_state for reproducibility
+
+    # Defining preprocessing for numeric and categorical features
+    numeric_features = X_train.select_dtypes(include=['int64', 'float64']).columns
+    categorical_features = X_train.select_dtypes(include=['object']).columns
+
+    # [Lack of Feature Scaling Consideration]
+    # Replaced Normalizer with StandardScaler for numerical features for more appropriate scaling.
+    numeric_transformer = Pipeline(steps=[
+        ('imputer', SimpleImputer(strategy='median')),
+        ('scaler', StandardScaler()) # Modified: Changed Normalizer to StandardScaler
+    ])
+
+    categorical_transformer = Pipeline(steps=[
+        ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
+        ('onehot', OneHotEncoder(handle_unknown='ignore'))
+    ])
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', numeric_transformer, numeric_features),
+            ('cat', categorical_transformer, categorical_features)
+        ],
+        remainder='passthrough' # Added remainder='passthrough' to keep any unlisted columns
+    )
+
+    # [Absence of Hyperparameter Tuning] & [Missing Cross-Validation]
+    # Integrated GridSearchCV into the pipeline for hyperparameter tuning with cross-validation.
+    # GridSearchCV handles cross-validation internally for robust parameter selection.
+    
+    # Define a parameter grid for RandomForestClassifier
+    # (Reduced parameter grid size for faster execution in a typical testing environment)
+    param_grid = {
+        'classifier__n_estimators': [50, 100],  # Number of trees in the forest
+        'classifier__max_depth': [None, 10, 20] # Maximum depth of the tree
+    }
+
+    # Create the full pipeline
+    pipeline = Pipeline(steps=[
+        ('preprocessor', preprocessor),
+        ('classifier', RandomForestClassifier(random_state=42)) # Added random_state for reproducibility
+    ])
+
+    # Initialize GridSearchCV
+    # cv=5 means 5-fold cross-validation will be performed for each parameter combination
+    # n_jobs=-1 uses all available CPU cores for parallel processing
+    grid_search = GridSearchCV(pipeline, param_grid, cv=5, verbose=1, n_jobs=-1, scoring='accuracy')
+
+    # Fitting the model (GridSearchCV will fit the best estimator internally using cross-validation)
+    print("Starting GridSearchCV for hyperparameter tuning...")
+    grid_search.fit(X_train, y_train)
+
+    # Print best parameters and score from grid search
+    print("\nBest parameters found by GridSearchCV:")
+    print(grid_search.best_params_)
+    print(f"Best cross-validation accuracy: {grid_search.best_score_:.2f}")
+
+    # Evaluating the best model found by GridSearchCV on the held-out test set
+    best_pipeline = grid_search.best_estimator_ # Get the best fitted pipeline
+    score = best_pipeline.score(X_test, y_test)
+    print(f"\nModel accuracy on the test set (using best estimator): {score:.2f}")
+
+    y_pred = best_pipeline.predict(X_test)
+    print("\nClassification Report on the test set:")
+    print(classification_report(y_test, y_pred, zero_division=0))
+
+    # --- End of Corrections and Improvements ---
+
+# Call the test_pipeline function to run the corrected pipeline
+if __name__ == '__main__':
+    test_pipeline()
+
+```
