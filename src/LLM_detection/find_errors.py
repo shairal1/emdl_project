@@ -1,8 +1,7 @@
 import traceback
-import re
-
 from google import genai
 from time import sleep
+from pathlib import Path
 
 API_KEY = "AIzaSyDWklovIvU6F6n3xUqQiqIvpDVTmx53zdc"  # Replace with your own API key
 client = genai.Client(api_key=API_KEY)
@@ -15,8 +14,8 @@ def try_run_pipeline(code):
         return None, None
     except Exception as e:
         return str(e), traceback.format_exc()
-def ask_gemini_to_find_problems(code: str) -> str:
-    # prompt for Gemini to identify the ML problems and  return them in the specified format.
+def ask_gemini_to_find_problems(code: str) -> tuple[str, list[str]]:
+    """Sends the code to Gemini to identify ML problems and returns the response text and problem titles."""
     prompt = f"""
     I will give you a Python code snippet. Your task is to identify all the machine learning (ML) problems in the code and describe them in detail.
     Do not provide any code fixes, just list the problems.
@@ -56,7 +55,6 @@ def ask_gemini_to_find_problems(code: str) -> str:
     return response.text, titles
 
 
-from pathlib import Path
 def list_pipelines(directory: str = "example_pipelines") -> list[str]:
     """Lists all Python files in the specified directory."""
     path = Path(directory)

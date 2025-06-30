@@ -20,7 +20,7 @@ from utils import get_project_root
 project_root = get_project_root()
 
 # Getting the raw data file
-raw_data_file = os.path.join(project_root, "adult_data.csv")
+raw_data_file = os.path.join(project_root, "datasets", "adult_data", "adult_data.csv")
 data = pd.read_csv(raw_data_file)
 
 # Incorrect text normalization

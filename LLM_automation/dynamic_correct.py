@@ -12,7 +12,7 @@ import pandas as pd
 #change the API key to your own
 API_KEY = "AIzaSyDWklovIvU6F6n3xUqQiqIvpDVTmx53zdc" 
 client = genai.Client(api_key=API_KEY)
-MODEL = "gemini-2.0-flash"
+MODEL = "gemini-2.5-flash"
 
 def try_run_pipeline(code_str: str):
 
@@ -150,9 +150,9 @@ def log_classification_report_from_string(
 def main(filepath: str = "test_pipeline/pipeline.py"):
     """Main function to run the pipeline and fix it if it fails."""
     orig_file = filepath
-    fixed_file = "test_pipeline/pipeline_fixed.py"
+    fixed_file = "LLM_automation/test_pipeline/pipeline_fixed.py"
 
-    with open(orig_file, "r", encoding="utf-8") as f:
+    with open("LLM_automation/test_pipeline/pipeline.py", "r", encoding="utf-8") as f:
         code = f.read() 
     # Try running the pipeline
     try:
@@ -183,7 +183,6 @@ def main(filepath: str = "test_pipeline/pipeline.py"):
             fixed_code = extract_code(fix_reply)
             if fixed_code is None:
                 print("⚠️ Couldn't parse the fixed code. Here’s the full Gemini reply:\n")
-                print(fix_reply)
                 return
             #running the fixed code
             current_code = fixed_code

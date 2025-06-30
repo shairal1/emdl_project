@@ -1,0 +1,2 @@
+[Incorrect Text Normalization]: Lowercasing and replacing hyphens in the 'occupation' column might lead to loss of information and incorrect aggregation, impacting model performance.  
+[Incorrect Spatial Aggregation]: Replacing specific country values in 'native-country' with 'North America' reduces the granularity of the data, potentially hindering the model's ability to learn relationships between specific locations and the target variable.
