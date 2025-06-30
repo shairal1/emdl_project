@@ -10,7 +10,6 @@ from sklearn.impute import SimpleImputer
 from sklearn.metrics import classification_report
 
 # Setting up paths
-
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
@@ -21,15 +20,15 @@ from utils import get_project_root
 project_root = get_project_root()
 
 # Getting the raw data file
-raw_data_file = os.path.join(project_root,"LLM_automation","test_pipeline","adult_data.csv")
+raw_data_file = os.path.join(project_root, "adult_data.csv")
 data = pd.read_csv(raw_data_file)
 
-# Corrected text normalization for 'occupation'
-# Removed the incorrect aggregation (replacing hyphens with spaces) and added stripping whitespace.
-data['occupation'] = data['occupation'].str.lower().str.strip()
+# Incorrect text normalization
+data['occupation'] = data['occupation'].str.lower()  # Lowercasing text
+data['occupation'] = data['occupation'].str.replace('-', ' ')  # Example of incorrect aggregation
 
-# Removed incorrect spatial aggregation for 'native-country'.
-# The original 'native-country' values will now be used.
+# Incorrect spatial aggregation
+data['native-country'] = data['native-country'].apply(lambda x: 'North America')  # Replacing location with a central value
 
 # Splitting data
 X_train, X_test, y_train, y_test = train_test_split(data.drop('salary', axis=1), data['salary'], test_size=0.2)

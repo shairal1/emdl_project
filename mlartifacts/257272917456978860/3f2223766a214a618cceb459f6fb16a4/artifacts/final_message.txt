@@ -1,0 +1,2 @@
+Data file not found: 'C:\Users\ahelm\Desktop\project\data\adult_data.csv'
+Please ensure 'adult_data.csv' is located in the 'data' subdirectory of your project's root directory.
