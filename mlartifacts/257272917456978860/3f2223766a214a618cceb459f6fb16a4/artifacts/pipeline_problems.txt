@@ -1,0 +1,2 @@
+[Incorrect Text Normalization]: The code attempts to normalize the 'occupation' column by lowercasing and replacing hyphens with spaces, which may not be a correct or optimal approach for text preprocessing for machine learning.  It could lead to loss of information or creation of irrelevant features.
+[Incorrect Spatial Aggregation]: The code replaces all values in the 'native-country' column with 'North America', which is an oversimplification and leads to a significant loss of potentially valuable location-specific information for the model.

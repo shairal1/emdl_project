@@ -72,6 +72,12 @@ python src/static_analysis/ml_analysis.py
 
 # Test dynamic analysis
 python src/dynamic_analysis/execution_metrics.py
+
+# Test LLM Detection
+python src/LLM_detection/find_errors.py
+
+#Test Gemini Correction
+python LLM_automation/dynamic_correct.py
 ```
 
 ## 🔍 Analysis Features

@@ -3,11 +3,15 @@ import re
 from time import sleep
 import mlflow
 from google import genai
-from LLM_detection.find_errors import ask_gemini_to_find_problems
 import json
 import io
 from contextlib import redirect_stdout
 import pandas as pd
+import os 
+import sys
+import runpy
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from src.LLM_detection.find_errors import ask_gemini_to_find_problems
 
 #change the API key to your own
 API_KEY = "AIzaSyDWklovIvU6F6n3xUqQiqIvpDVTmx53zdc" 
@@ -15,12 +19,46 @@ client = genai.Client(api_key=API_KEY)
 MODEL = "gemini-2.5-flash"
 
 def try_run_pipeline(code_str: str):
-
     buf = io.StringIO()
     try:
-        # everything that pipeline prints goes into buf
+        # Add the workspace root to sys.path for package imports
+        workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        if workspace_root not in sys.path:
+            sys.path.insert(0, workspace_root)
+        # Provide a full global namespace so imports and modules work
+        exec_globals = {
+            "__file__": os.path.abspath("LLM_automation/test_pipeline/pipeline.py"),
+            "__name__": "__main__",
+            "__package__": None,
+            "__builtins__": __builtins__,
+            "os": os,
+            "sys": sys,
+            "pd": pd,
+        }
+        # Also add LLM_automation as a module if needed
+        import types
+        import importlib.util
+        # Try to import LLM_automation as a module if it exists
+        try:
+            spec = importlib.util.find_spec("LLM_automation")
+            if spec is not None:
+                LLM_automation = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(LLM_automation)
+                exec_globals["LLM_automation"] = LLM_automation
+        except Exception:
+            pass
         with redirect_stdout(buf):
-            exec(code_str, {})  
+            exec(code_str, exec_globals)
+        return None, None, buf.getvalue()
+    except Exception as e:
+        return str(e), traceback.format_exc(), buf.getvalue()
+
+
+def try_run_pipeline_file(filepath: str):
+    buf = io.StringIO()
+    try:
+        with redirect_stdout(buf):
+            runpy.run_path(filepath, run_name="__main__")
         return None, None, buf.getvalue()
     except Exception as e:
         return str(e), traceback.format_exc(), buf.getvalue()
@@ -147,31 +185,50 @@ def log_classification_report_from_string(
 
 
 
-def main(filepath: str = "test_pipeline/pipeline.py"):
+def main(filepath: str = "LLM_automation/test_pipeline/pipeline.py"):
     """Main function to run the pipeline and fix it if it fails."""
-    orig_file = filepath
-    fixed_file = "LLM_automation/test_pipeline/pipeline_fixed.py"
-
-    with open("LLM_automation/test_pipeline/pipeline.py", "r", encoding="utf-8") as f:
-        code = f.read() 
-    # Try running the pipeline
-    try:
-        error, tb, printed = try_run_pipeline(orig_file)
-    except Exception as e:
-        print("⚠️ Error while trying to run the pipeline:", e)
-        
-    if error is None:
-        print("✅ Pipeline ran successfully—no fix needed.")
-        return      
-    print("❌ Pipeline failed. Requesting fix from Gemini…")
-    current_code = code
-    current_error = error
-    current_tb = tb
-    i = 0
-
     mlflow.set_tracking_uri("http://127.0.0.1:5000")
     mlflow.set_experiment("autofix_pipeline")
     with mlflow.start_run(run_name="autofix_gemini_test"):
+        orig_file = filepath
+        fixed_file = "LLM_automation/test_pipeline/pipeline_fixed.py"
+
+        # Use runpy to run the pipeline file
+        try:
+            error, tb, printed = try_run_pipeline_file(orig_file)
+        except Exception as e:
+            print("⚠️ Error while trying to run the pipeline:", e)
+            return
+        if error is None:
+            with open(orig_file, "r", encoding="utf-8") as f:
+                code = f.read()
+            text, problems = ask_gemini_to_find_problems(code)
+            print("Problems found in the pipeline:")
+            for problem in problems:
+                print(f" - {problem}", end="")
+            print('\n')
+            new_code = ask_gemini_to_improve(code, problems)
+            with open(fixed_file, "w", encoding="utf-8") as f:
+                f.write(new_code.replace("```python", "").replace("```", "").strip())
+            print(new_code)
+            error, tb, printed = try_run_pipeline_file(fixed_file)
+            if error is not None:
+                print("error while trying to run the fixed pipeline:", error, tb)
+                print("❌ Pipeline still failed after Gemini's improvements.")
+                mlflow.log_metric("fix_needed", 1)
+            print(printed)
+            return
+        with open(orig_file, "r", encoding="utf-8") as f:
+            code = f.read()
+        mlflow.log_text(text, "pipeline_problems.txt")
+        mlflow.log_param("problems", json.dumps(problems))
+        mlflow.log_text(code, "pipeline_original.py")
+        print("Classification report logged as JSON artifact.")
+        print("❌ Pipeline failed. Requesting fix from Gemini…")
+        current_code = code
+        current_error = error
+        current_tb = tb
+        i = 0
         mlflow.log_param("pipeline_file", orig_file)
         text, problems = ask_gemini_to_find_problems(current_code)
         mlflow.log_text(text, "pipeline_problems.txt")
@@ -184,17 +241,16 @@ def main(filepath: str = "test_pipeline/pipeline.py"):
             if fixed_code is None:
                 print("⚠️ Couldn't parse the fixed code. Here’s the full Gemini reply:\n")
                 return
-            #running the fixed code
-            current_code = fixed_code
-            current_error, current_tb, printed = try_run_pipeline(current_code)
-            
+            # Write the fixed code to file
+            with open(fixed_file, "w", encoding="utf-8") as f:
+                f.write(fixed_code)
+            # Run the fixed pipeline file
+            current_error, current_tb, printed = try_run_pipeline_file(fixed_file)
             i += 1
             if current_error is None:
                 print(f"✅ Pipeline fixed successfully after {i} iterations.")
-                with open(fixed_file, "w", encoding="utf-8") as f:
-                    f.write(current_code)
                 mlflow.log_metric("fix_iterations", i)
-                mlflow.log_text(current_code, "pipeline_fixed.py")
+                mlflow.log_text(fixed_code, "pipeline_fixed.py")
                 mlflow.log_artifact(fixed_file)
                 log_classification_report_artifact(printed, "classification_report.txt")
                 print("Classification report logged as JSON artifact.")
@@ -212,8 +268,7 @@ def main(filepath: str = "test_pipeline/pipeline.py"):
                 break
         new_code = ask_gemini_to_improve(current_code, problems)
         with open(fixed_file, "w", encoding="utf-8") as f:
-                f.write(new_code.replace("```python", "").replace("```", "").strip())
-    try_run_pipeline(fixed_file)
+            f.write(new_code.replace("```python", "").replace("```", "").strip())
     print("All done! Check the MLflow UI for details.")
 
 
