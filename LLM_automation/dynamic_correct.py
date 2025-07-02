@@ -12,7 +12,8 @@ import sys
 import runpy
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.LLM_detection.find_errors import ask_gemini_to_find_problems
-
+# set model temperature to 0 or 0.2
+# remove comments
 #change the API key to your own
 API_KEY = "AIzaSyDWklovIvU6F6n3xUqQiqIvpDVTmx53zdc" 
 client = genai.Client(api_key=API_KEY)
@@ -65,7 +66,7 @@ def try_run_pipeline_file(filepath: str):
 
 
 def ask_gemini_to_fix(code: str, error: str, tb: str, problems: str) -> str:
-    """Envoie le code et l'erreur à Gemini, renvoie la réponse brute."""
+    """Prompts Gemini to fix the code based on the error and problems."""
     prompt = f"""
 This Python ML pipeline has the following problems and throws this error.
 Problems: 
@@ -95,6 +96,7 @@ This Python ML pipeline has the following problems:
 Here is the code:
 ```python
 {code}
+Don't do hyperparameter tuning, just improve the code.
 Please provide a corrected, complete version of the code within a single python block and specify with comments what you modified. don't add any unnecessary comments, just the code.
 """
     response = client.models.generate_content(
@@ -183,93 +185,150 @@ def log_classification_report_from_string(
                     key = f"{safe_label}_{metric_name}"
                     mlflow.log_metric(key, float(val))
 
-
-
-def main(filepath: str = "LLM_automation/test_pipeline/pipeline.py"):
+def main():
     """Main function to run the pipeline and fix it if it fails."""
     mlflow.set_tracking_uri("http://127.0.0.1:5000")
-    mlflow.set_experiment("autofix_pipeline")
+    mlflow.set_experiment("LLM_automation")
     with mlflow.start_run(run_name="autofix_gemini_test"):
-        orig_file = filepath
+        orig_file = "LLM_automation/test_pipeline/pipeline.py"
         fixed_file = "LLM_automation/test_pipeline/pipeline_fixed.py"
-
-        # Use runpy to run the pipeline file
-        try:
-            error, tb, printed = try_run_pipeline_file(orig_file)
-        except Exception as e:
-            print("⚠️ Error while trying to run the pipeline:", e)
-            return
-        if error is None:
-            with open(orig_file, "r", encoding="utf-8") as f:
-                code = f.read()
-            text, problems = ask_gemini_to_find_problems(code)
-            print("Problems found in the pipeline:")
-            for problem in problems:
-                print(f" - {problem}", end="")
-            print('\n')
-            new_code = ask_gemini_to_improve(code, problems)
-            with open(fixed_file, "w", encoding="utf-8") as f:
-                f.write(new_code.replace("```python", "").replace("```", "").strip())
-            print(new_code)
-            error, tb, printed = try_run_pipeline_file(fixed_file)
-            if error is not None:
-                print("error while trying to run the fixed pipeline:", error, tb)
-                print("❌ Pipeline still failed after Gemini's improvements.")
-                mlflow.log_metric("fix_needed", 1)
-            print(printed)
-            return
+        error, tb, printed = try_run_pipeline_file(orig_file)
+        i = 0
         with open(orig_file, "r", encoding="utf-8") as f:
             code = f.read()
-        mlflow.log_text(text, "pipeline_problems.txt")
-        mlflow.log_param("problems", json.dumps(problems))
-        mlflow.log_text(code, "pipeline_original.py")
-        print("Classification report logged as JSON artifact.")
-        print("❌ Pipeline failed. Requesting fix from Gemini…")
-        current_code = code
-        current_error = error
-        current_tb = tb
-        i = 0
-        mlflow.log_param("pipeline_file", orig_file)
-        text, problems = ask_gemini_to_find_problems(current_code)
-        mlflow.log_text(text, "pipeline_problems.txt")
-        mlflow.log_param("problems", json.dumps(problems))
-        mlflow.log_text(current_code, "pipeline_original.py")
-        mlflow.log_metric("fixe_needed", 1)
-        while current_error is not None:
-            fix_reply = ask_gemini_to_fix(current_code, current_error, current_tb, problems)
-            fixed_code = extract_code(fix_reply)
-            if fixed_code is None:
-                print("⚠️ Couldn't parse the fixed code. Here’s the full Gemini reply:\n")
-                return
-            # Write the fixed code to file
+        while error is not None:
+            print("❌ Pipeline failed with error:", error)
+            print("Traceback:")
+            print(tb)   
+            print("Requesting fix from Gemini..")
+
+            code = ask_gemini_to_fix(code, error, tb, printed)
             with open(fixed_file, "w", encoding="utf-8") as f:
-                f.write(fixed_code)
-            # Run the fixed pipeline file
-            current_error, current_tb, printed = try_run_pipeline_file(fixed_file)
+                f.write(code.replace("```python", "").replace("```", "").strip())
+            print("wrote new code to fixed file")
+            print("Running fixed pipeline file...")
+            error, tb, printed = try_run_pipeline_file(fixed_file)
             i += 1
-            if current_error is None:
-                print(f"✅ Pipeline fixed successfully after {i} iterations.")
-                mlflow.log_metric("fix_iterations", i)
-                mlflow.log_text(fixed_code, "pipeline_fixed.py")
-                mlflow.log_artifact(fixed_file)
-                log_classification_report_artifact(printed, "classification_report.txt")
-                print("Classification report logged as JSON artifact.")
-                print(f"✅ Fixed code written to {fixed_file}.")
-                mlflow.log_param("fix_extracted", True)
-                mlflow.log_text(fix_reply, "gemini_full_response.txt")
-                i = 0
-                break
-            else:
-                print(f"❌ Fix attempt {i} failed with error: {current_error}")
             if i >= 5:
                 print("⚠️ Too many iterations without success. Stopping.")
-                mlflow.log_text(current_tb, "traceback.txt")
-                mlflow.log_text(current_error, "final_message.txt")
+                mlflow.log_text(tb, "traceback.txt")
+                mlflow.log_text(error, "final_message.txt")
                 break
-        new_code = ask_gemini_to_improve(current_code, problems)
-        with open(fixed_file, "w", encoding="utf-8") as f:
-            f.write(new_code.replace("```python", "").replace("```", "").strip())
-    print("All done! Check the MLflow UI for details.")
+        if error is None:
+            print("✅ Pipeline fixed successfully after", i, "iterations.")
+            print("classification report of non improved code:")
+            print(printed)
+            mlflow.log_text(printed, "orig_pipeline_output.txt")
+            log_classification_report_artifact(printed, "orig_classification_report.txt")
+            print("Classification report logged in mlflow")
+            print("Requesting fixes from Gemini to improve the code further...")
+            problems = ask_gemini_to_find_problems(code)
+            new_code = ask_gemini_to_improve(code, problems)
+            print("running improved code...")
+            with open(fixed_file, "w", encoding="utf-8") as f:
+                f.write(new_code.replace("```python", "").replace("```", "").strip())
+            error, tb, printed = try_run_pipeline_file(fixed_file)
+            print("classification report of improved code:")
+            print(printed)
+            mlflow.log_text(printed, "improved_pipeline_output.txt")
+            print("Classification report logged in mlflow")
+            mlflow.log_text(new_code, "pipeline_fixed.py")
+            print("All done! Check the MLflow UI for details.")
+
+
+# def main(filepath: str = "LLM_automation/test_pipeline/pipeline.py"):
+#     """Main function to run the pipeline and fix it if it fails."""
+#     mlflow.set_tracking_uri("http://127.0.0.1:5000")
+#     mlflow.set_experiment("autofix_pipeline")
+#     with mlflow.start_run(run_name="autofix_gemini_test"):
+#         orig_file = filepath
+#         fixed_file = "LLM_automation/test_pipeline/pipeline_fixed.py"
+
+#         # Use runpy to run the pipeline file
+#         try:
+#             error, tb, printed = try_run_pipeline_file(orig_file)
+#         except Exception as e:
+#             print("⚠️ Error while trying to run the pipeline:", e)
+#             return
+#         if error is None:
+#             mlflow.log_param("Error in pipeline", "No error")
+#             with open(orig_file, "r", encoding="utf-8") as f:
+#                 code = f.read()
+#             text, problems = ask_gemini_to_find_problems(code)
+#             print("Problems found in the pipeline:")
+#             for problem in problems:
+#                 print(f" - {problem}", end="")
+#             print("")
+#             new_code = ask_gemini_to_improve(code, problems)
+#             with open(fixed_file, "w", encoding="utf-8") as f:
+#                 f.write(new_code.replace("```python", "").replace("```", "").strip())
+#             print("wrote new code to fixed file")
+#             mlflow.log_text(new_code, "pipeline_fixed.py")
+#             # print(new_code)
+#             error, tb, printed = try_run_pipeline_file(fixed_file)
+#             if error is not None:
+#                 print("error while trying to run the fixed pipeline:", error, tb)
+#                 print("❌ Pipeline still failed after Gemini's improvements.")
+#             print(printed)
+#             mlflow.log_text(printed, "pipeline_output.txt")
+#             print("Classification report logged in mlflow")
+
+#         else:
+#             mlflow.log_param("Error in pipeline", error)
+#             print("❌ Pipeline failed with error:", error)
+#             print("Traceback:")
+#             print(tb)
+        
+#         with open(orig_file, "r", encoding="utf-8") as f:
+#             code = f.read()
+#         print("❌ Pipeline failed. Requesting fix from Gemini…")
+#         current_code = code
+#         current_error = error
+#         current_tb = tb
+#         i = 0
+#         # mlflow.log_param("pipeline_file", orig_file)
+#         text, problems = ask_gemini_to_find_problems(current_code)
+#         # mlflow.log_text(text, "pipeline_problems.txt")
+#         # mlflow.log_param("problems", json.dumps(problems))
+#         # mlflow.log_text(current_code, "pipeline_original.py")
+#         # mlflow.log_metric("fixe_needed", 1)
+#         while current_error is not None:
+#             fix_reply = ask_gemini_to_fix(current_code, current_error, current_tb, problems)
+#             fixed_code = extract_code(fix_reply)
+#             if fixed_code is None:
+#                 print("⚠️ Couldn't parse the fixed code. Here’s the full Gemini reply:\n")
+#                 print(fix_reply)
+#                 mlflow.log_text(fix_reply, "gemini_full_response.txt")
+#                 return
+#             # Write the fixed code to file
+#             with open(fixed_file, "w", encoding="utf-8") as f:
+#                 f.write(fixed_code)
+#             # Run the fixed pipeline file
+#             current_error, current_tb, printed = try_run_pipeline_file(fixed_file)
+#             i += 1
+#             if current_error is None:
+#                 print(f"✅ Pipeline fixed successfully after {i} iterations.")
+#                 mlflow.log_metric("fix_iterations", i)
+#                 mlflow.log_text(fixed_code, "pipeline_fixed.py")
+#                 mlflow.log_artifact(fixed_file)
+#                 log_classification_report_artifact(printed, "classification_report.txt")
+#                 print("Classification report logged as JSON artifact.")
+#                 print(f"✅ Fixed code written to {fixed_file}.")
+#                 mlflow.log_param("fix_extracted", True)
+#                 mlflow.log_text(fix_reply, "gemini_full_response.txt")
+#                 i = 0
+#                 break
+#             else:
+#                 print(f"❌ Fix attempt {i} failed with error: {current_error}")
+#             if i >= 5:
+#                 print("⚠️ Too many iterations without success. Stopping.")
+#                 mlflow.log_text(current_tb, "traceback.txt")
+#                 mlflow.log_text(current_error, "final_message.txt")
+#                 break
+#         new_code = ask_gemini_to_improve(current_code, problems)
+#         with open(fixed_file, "w", encoding="utf-8") as f:
+#             f.write(new_code.replace("```python", "").replace("```", "").strip())
+#     print("All done! Check the MLflow UI for details.")
 
 
 
