@@ -5,9 +5,10 @@ from sklearn.preprocessing import Normalizer, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score # Modified: Added cross_val_score
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import classification_report
+import numpy as np # Added: Imported numpy for mean and std deviation calculation
 
 # Setting up paths
 
@@ -24,15 +25,19 @@ project_root = get_project_root()
 raw_data_file = os.path.join(project_root,"LLM_automation","test_pipeline","adult_data.csv")
 data = pd.read_csv(raw_data_file)
 
-# Corrected text normalization for 'occupation'
-# Removed the incorrect aggregation (replacing hyphens with spaces) and added stripping whitespace.
-data['occupation'] = data['occupation'].str.lower().str.strip()
-
-# Removed incorrect spatial aggregation for 'native-country'.
-# The original 'native-country' values will now be used.
+data['occupation'] = data['occupation'].str.lower()  
+data['occupation'] = data['occupation'].str.replace('-', ' ')  
+# [Data Leakage] and [Improper handling of categorical features] addressed:
+# Removed the incorrect spatial aggregation for 'native-country'.
+# The original 'native-country' values will now be processed by OneHotEncoder.
+# This also indirectly addresses a consequence of [Inadequate Data Exploration],
+# as proper exploration would reveal the diversity and potential importance of 'native-country' values.
 
 # Splitting data
-X_train, X_test, y_train, y_test = train_test_split(data.drop('salary', axis=1), data['salary'], test_size=0.2)
+X = data.drop('salary', axis=1)
+y = data['salary']
+# Modified: Added random_state for reproducibility of the split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # Defining preprocessing for numeric and categorical features
 numeric_features = X_train.select_dtypes(include=['int64', 'float64']).columns
@@ -57,14 +62,21 @@ preprocessor = ColumnTransformer(
 # Combining preprocessing with the classifier
 pipeline = Pipeline(steps=[
     ('preprocessor', preprocessor),
-    ('classifier', RandomForestClassifier())
+    # Modified: Added random_state for reproducibility of the classifier
+    ('classifier', RandomForestClassifier(random_state=42)) 
 ])
 
-# Fitting model
+# [Lack of Cross-Validation] addressed:
+# Perform cross-validation on the training data to get a robust estimate of model performance.
+cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5, scoring='accuracy', n_jobs=-1) 
+print(f"Cross-validation accuracy scores: {cv_scores}")
+print(f"Mean CV accuracy: {np.mean(cv_scores):.2f} +/- {np.std(cv_scores):.2f}")
+
+# Fit the pipeline on the full training data
 pipeline.fit(X_train, y_train)
 
-# Evaluating the model
+# Evaluating the model on the hold-out test set
 score = pipeline.score(X_test, y_test)
-print(f"Model accuracy: {score:.2f}")
+print(f"Model accuracy on test set: {score:.2f}")
 y_pred = pipeline.predict(X_test)
 print(classification_report(y_test, y_pred, zero_division=0))
