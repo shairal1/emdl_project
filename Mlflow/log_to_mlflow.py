@@ -2,7 +2,7 @@ import os
 import subprocess
 
 selected_pipelines_dir = os.path.join("Mlflow", "selected_pipelines")
-target_files = ["example-0.py", "fixed.py"]
+target_files = ["example-0.py", "example-0_fixed_gemini.py"]
 
 def main():
     if not os.path.isdir(selected_pipelines_dir):

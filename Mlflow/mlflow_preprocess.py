@@ -5,7 +5,7 @@ client = genai.Client(api_key=API_KEY)
 MODEL = "gemini-2.5-flash"
 
 selected_pipelines_dir = os.path.join("Mlflow", "selected_pipelines")
-target_files = ["example-0.py", "fixed.py"]
+target_files = ["example-0.py", "example-0_fixed_gemini.py"]
 
 def build_prompt(code, folder_name, file_name):
     return f"""
@@ -18,7 +18,8 @@ Transform this Python pipeline code so that it uses MLflow for experiment tracki
   mlflow.set_experiment("Pipeline_track")
 - Wrap the training and evaluation into an `mlflow.start_run(run_name=RUN_NAME)` context, where RUN_NAME is meaningful (use '{folder_name}_{file_name}' as run_name).
 - Ensure that the metrics: F1 score, accuracy, precision, and recall are logged explicitly with `mlflow.log_metric()`.
-- The code should run as is, with the logging additions and minimal restructuring.
+- Log the file name as mlflow.log_param("Pipeline", RUN_NAME)
+- The code should run as is, with the logging additions and minimal restructuring and dont create a main function
 - Use `import mlflow` if not already imported.
 - Your code should be able to be executed right away
 - Resolve syntax issues or scikit-learn version compatibility issues.
