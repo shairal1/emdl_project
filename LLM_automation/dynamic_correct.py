@@ -8,7 +8,7 @@ import json
 import io
 from contextlib import redirect_stdout
 import pandas as pd
-
+#report error type and behavior of the llm
 #change the API key to your own
 API_KEY = "AIzaSyDWklovIvU6F6n3xUqQiqIvpDVTmx53zdc" 
 client = genai.Client(api_key=API_KEY)
@@ -172,13 +172,16 @@ def main(filepath: str = "test_pipeline/pipeline.py"):
     mlflow.set_tracking_uri("http://127.0.0.1:5000")
     mlflow.set_experiment("autofix_pipeline")
     with mlflow.start_run(run_name="autofix_gemini_test"):
-        mlflow.log_param("pipeline_file", orig_file)
+        print("🔍 Analyzing the pipeline for problems...")
         text, problems = ask_gemini_to_find_problems(current_code)
+#------------Logging pipeline problems-----------------------------------------
+        mlflow.log_param("pipeline_file", orig_file)
         mlflow.log_text(text, "pipeline_problems.txt")
         mlflow.log_param("problems", json.dumps(problems))
         mlflow.log_text(current_code, "pipeline_original.py")
         mlflow.log_metric("fixe_needed", 1)
         while current_error is not None:
+#-------------Fixing pipeline with gemini-------------------------------------
             fix_reply = ask_gemini_to_fix(current_code, current_error, current_tb, problems)
             fixed_code = extract_code(fix_reply)
             if fixed_code is None:
@@ -187,8 +190,8 @@ def main(filepath: str = "test_pipeline/pipeline.py"):
                 return
             #running the fixed code
             current_code = fixed_code
-            current_error, current_tb, printed = try_run_pipeline(current_code)
-            
+            current_error, current_tb, printed = try_run_pipeline_file(current_code)
+
             i += 1
             if current_error is None:
                 print(f"✅ Pipeline fixed successfully after {i} iterations.")
