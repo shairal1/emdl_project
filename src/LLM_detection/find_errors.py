@@ -62,7 +62,8 @@ def list_pipelines(directory: str = "example_pipelines") -> list[str]:
     pipelines = []
     for folder in pipeline_folders:
         #getting all python files in the folder that need to be fixed
-        pipelines.extend([str(file) for file in folder.glob("*.py") if "fixed" not in file.name])
+        pipelines.extend([str(file) for file in folder.glob("*.py") if ("Gemini" not in file.name) and ("fixed" not in file.name)   ])
+
     return pipelines
 # if this code is run from the command lines it will list all the pipelines in the example_pipelines directory and try to find problems in them using Gemini.
 # It will create a file with the same name as the pipeline but with _problems.txt appended to it, containing the problems found by Gemini.
