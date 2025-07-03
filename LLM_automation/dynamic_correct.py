@@ -11,7 +11,7 @@ import os
 import sys
 import runpy
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.LLM_detection.find_errors import ask_gemini_to_find_problems
+from src.LLM_detection.find_errors import ask_gemini_to_find_problems, list_pipelines
 # set model temperature to 0 or 0.2
 # remove comments
 #change the API key to your own
@@ -184,20 +184,47 @@ def log_classification_report_from_string(
                 if val is not None and not pd.isna(val):
                     key = f"{safe_label}_{metric_name}"
                     mlflow.log_metric(key, float(val))
+def dynamic_correct_folder(filepath = "openhands-automation/pipelines/"):
+    """
+    Corrects all Python files in the specified folder.
+    """
+    pipelines = list_pipelines(filepath)
+    for i, pipeline in enumerate(pipelines):
+        print(f"Processing pipeline: {pipeline}", i)
+        with open(pipeline, "r", encoding="utf-8") as f:
+            code = f.read() 
+        # Try finding problems in the pipeline
+        try:
+            main(pipeline.replace("example-0.py", ""), pipeline_name="example-0")
+        except Exception as e:
+            print("An error occurred:", e)
+            print("max TPM reached, waiting 60 seconds")
+            sleep(60)
+            main(filepath.replace("example-0.py", ""), pipeline_name="example-0")
+        
 
-def main():
+
+
+def main(filepath: str = "LLM_automation/test_pipeline/", pipeline_name: str = "pipeline"):
     """Main function to run the pipeline and fix it if it fails."""
     mlflow.set_tracking_uri("http://127.0.0.1:5000")
     mlflow.set_experiment("LLM_automation")
-    with mlflow.start_run(run_name="autofix_gemini_test"):
-        orig_file = "LLM_automation/test_pipeline/pipeline.py"
-        fixed_file = "LLM_automation/test_pipeline/pipeline_fixed.py"
+    print(filepath)
+    with mlflow.start_run(run_name=f"autofix__{filepath[-10:]}"):
+        orig_file = filepath + pipeline_name + ".py"
+        fixed_file = filepath + pipeline_name + "_Gemini.py"
+#--------------Logging files into mlflow--------------------------------
+        mlflow.log_artifact(orig_file, "original_pipeline.py")
+        print("Original pipeline file logged in mlflow")
+        print("Running original pipeline file...")
+#--------------Running the original pipeline file------------------------
         error, tb, printed = try_run_pipeline_file(orig_file)
-        i = 0
+        i = 1
         with open(orig_file, "r", encoding="utf-8") as f:
             code = f.read()
+#--------------Fixing the pipeline errors with gemini -------------------
         while error is not None:
-            print("❌ Pipeline failed with error:", error)
+            print(f"❌ Pipeline failed with error {i}: {error}")
             print("Traceback:")
             print(tb)   
             print("Requesting fix from Gemini..")
@@ -209,30 +236,41 @@ def main():
             print("Running fixed pipeline file...")
             error, tb, printed = try_run_pipeline_file(fixed_file)
             i += 1
-            if i >= 5:
+            if i > 5:
                 print("⚠️ Too many iterations without success. Stopping.")
                 mlflow.log_text(tb, "traceback.txt")
                 mlflow.log_text(error, "final_message.txt")
                 break
+#---------------Logging the original classification report----------------
         if error is None:
             print("✅ Pipeline fixed successfully after", i, "iterations.")
             print("classification report of non improved code:")
             print(printed)
             mlflow.log_text(printed, "orig_pipeline_output.txt")
-            log_classification_report_artifact(printed, "orig_classification_report.txt")
             print("Classification report logged in mlflow")
             print("Requesting fixes from Gemini to improve the code further...")
             problems = ask_gemini_to_find_problems(code)
             new_code = ask_gemini_to_improve(code, problems)
-            print("running improved code...")
+#---------------Logging the improved code and classification report----------------
+            print("writing improved code to fixed file...")
             with open(fixed_file, "w", encoding="utf-8") as f:
                 f.write(new_code.replace("```python", "").replace("```", "").strip())
+            print("running improved code...")
             error, tb, printed = try_run_pipeline_file(fixed_file)
             print("classification report of improved code:")
             print(printed)
             mlflow.log_text(printed, "improved_pipeline_output.txt")
             print("Classification report logged in mlflow")
             mlflow.log_text(new_code, "pipeline_fixed.py")
+            mlflow.log_artifact(fixed_file, "fixed_pipeline.py")
+            print("All done! Check the MLflow UI for details.")
+        else:
+            print("❌ Pipeline still failed after Gemini's improvements.")
+            print("Classification report of fixed code:")
+            print(printed)
+            mlflow.log_text(printed, "fixed_pipeline_output.txt")
+            mlflow.log_text(code, "pipeline_fixed.py")
+            mlflow.log_artifact(fixed_file, "fixed_pipeline.py")
             print("All done! Check the MLflow UI for details.")
 
 
@@ -333,4 +371,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    dynamic_correct_folder()
