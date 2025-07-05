@@ -2,3 +2,5 @@
 /venv
 /dev
 .vscode
+/datasets
+/openhands-automation/pipelines
