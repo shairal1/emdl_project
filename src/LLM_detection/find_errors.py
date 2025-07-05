@@ -16,6 +16,11 @@ def try_run_pipeline(code):
         return str(e), traceback.format_exc()
 def ask_gemini_to_find_problems(code: str) -> tuple[str, list[str]]:
     """Sends the code to Gemini to identify ML problems and returns the response text and problem titles."""
+    # Remove comments from the code
+    # This is done to avoid Gemini getting hints on the problems in the code
+    stripped_code = "\n".join(
+        line for line in code.splitlines() if not line.lstrip().startswith("#")
+    )
     prompt = f"""
     I will give you a Python code snippet. Your task is to identify all the machine learning (ML) problems in the code and describe them in detail.
     Do not provide any code fixes, just list the problems.
@@ -37,7 +42,7 @@ def ask_gemini_to_find_problems(code: str) -> tuple[str, list[str]]:
     Repeat this format exactly. Do not alter it.
 
     Here is the code:
-    {code}
+    {stripped_code}
     """              
     response = client.models.generate_content(
         model=MODEL,

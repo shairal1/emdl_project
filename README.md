@@ -150,6 +150,7 @@ The system generates comprehensive reports including:
 - Preprocessing step analysis
 - Model parameter comparison
 - Detected ML issues
+- Line change as a function of the problem.
 
 ### Dynamic Analysis Report
 - Execution time comparison

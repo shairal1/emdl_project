@@ -14,11 +14,18 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.LLM_detection.find_errors import ask_gemini_to_find_problems, list_pipelines
 # set model temperature to 0 or 0.2
 # remove comments
+            # stripped = "\n".join(
+            #     line for line in content.splitlines() if not line.lstrip().startswith("#")
+            # )
 #change the API key to your own
 API_KEY = "AIzaSyDWklovIvU6F6n3xUqQiqIvpDVTmx53zdc" 
 client = genai.Client(api_key=API_KEY)
 MODEL = "gemini-2.5-flash"
-
+def remove_comments(code: str) -> str:
+    """Removes comments from the code to avoid giving hints to Gemini."""
+    return "\n".join(
+        line for line in code.splitlines() if not line.lstrip().startswith("#")
+    )
 def try_run_pipeline(code_str: str):
     buf = io.StringIO()
     try:
