@@ -1,0 +1,14 @@
+artifact_uri: mlflow-artifacts:/257272917456978860/e98a31678c44429aa4ebe4fdafbd6d90/artifacts
+end_time: 1751275458093
+entry_point_name: ''
+experiment_id: '257272917456978860'
+lifecycle_stage: active
+run_id: e98a31678c44429aa4ebe4fdafbd6d90
+run_name: autofix_gemini_test
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1751275328821
+status: 3
+tags: []
+user_id: ahelm

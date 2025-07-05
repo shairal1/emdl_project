@@ -1,0 +1,2 @@
+[Incorrect Text Normalization]: The text normalization being performed on the 'occupation' column is overly simplistic and may lead to loss of information or incorrect aggregation of categories.
+[Incorrect Spatial Aggregation]: Replacing all values in the 'native-country' column with 'North America' is an oversimplification that removes all the geographical variance present in the original data, leading to significant information loss and potentially biased or inaccurate model results.

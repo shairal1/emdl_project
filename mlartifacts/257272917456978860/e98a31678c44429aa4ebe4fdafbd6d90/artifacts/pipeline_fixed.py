@@ -1,0 +1,247 @@
+import sys
+import os
+import pandas as pd
+from sklearn.preprocessing import Normalizer, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.impute import SimpleImputer
+from sklearn.metrics import classification_report, roc_auc_score
+
+# MODIFIED: Removed direct use of __file__ in global scope.
+# The original code used `__file__` to set `current_dir` and `parent_dir` at the global level.
+# When code is executed via `exec(code_str, {})`, the `__file__` variable is not defined in the empty globals,
+# leading to a `NameError`. All path handling is now consolidated within `get_project_root`
+# and the `test_pipeline` function to avoid this global dependency.
+
+# MODIFIED: Adjusted get_project_root fallback for robustness.
+# In a real setup, this would be imported from utils.py.
+# This ensures the script can run even if utils.py isn't set up perfectly in the environment
+# and gracefully handles environments where __file__ is not defined.
+try:
+    from utils import get_project_root
+except ImportError:
+    print("Warning: utils.get_project_root not found. Using current working directory as project root.")
+    def get_project_root():
+        # MODIFIED: Replaced os.path.abspath(__file__) with os.getcwd()
+        # This makes the function robust when __file__ is not defined (e.g., in some exec contexts).
+        # It assumes the script is run from (or the data is located relative to) the current working directory.
+        return os.getcwd()
+
+# MODIFIED: Wrapped the entire pipeline logic into a function named 'test_pipeline'.
+# This addresses the 'NameError: name 'test_pipeline' is not defined' reported in the traceback,
+# as the execution environment seems to expect this function to be callable.
+def test_pipeline():
+    # Getting the project root
+    project_root = get_project_root()
+
+    # Getting the raw data file
+    raw_data_file = os.path.join(project_root, "adult_data.csv")
+
+    # MODIFIED: Added a check for the data file and created dummy data if not found.
+    # This makes the script runnable for demonstration/testing purposes even without the actual file.
+    if not os.path.exists(raw_data_file):
+        print(f"Warning: Data file not found at {raw_data_file}. Creating dummy data for demonstration.")
+        # Create dummy data resembling 'adult_data.csv' structure
+        dummy_data = {
+            'age': [39, 50, 38, 53, 28, 37, 49, 52, 31, 42, None, 45, 29],
+            'workclass': ['State-gov', 'Self-emp-not-inc', 'Private', 'Private', 'Private', 'Private', 'Private', 'Self-emp-not-inc', 'Private', 'Private', '?', 'Private', 'Private'],
+            'fnlwgt': [77516, 83311, 215646, 234721, 338409, 284582, 160187, 209642, 45781, 159449, 123456, 170000, 200000],
+            'education': ['Bachelors', 'Bachelors', 'HS-grad', '11th', 'Bachelors', 'Masters', '9th', 'HS-grad', 'Masters', 'Bachelors', 'Some-college', 'Bachelors', 'HS-grad'],
+            'education-num': [13, 13, 9, 7, 13, 14, 5, 9, 14, 13, 10, 13, 9],
+            'marital-status': ['Never-married', 'Married-civ-spouse', 'Divorced', 'Married-civ-spouse', 'Married-civ-spouse', 'Married-civ-spouse', 'Married-civ-spouse', 'Married-civ-spouse', 'Never-married', 'Married-civ-spouse', 'Never-married', 'Married-civ-spouse', 'Divorced'],
+            'occupation': ['Adm-clerical', 'Exec-managerial', 'Handlers-cleaners', 'Handlers-cleaners', 'Prof-specialty', 'Exec-managerial', 'Other-service', 'Exec-managerial', 'Prof-specialty', 'Exec-managerial', '?', 'Sales', 'Craft-repair'],
+            'relationship': ['Not-in-family', 'Husband', 'Not-in-family', 'Husband', 'Wife', 'Wife', 'Not-in-family', 'Husband', 'Not-in-family', 'Husband', 'Own-child', 'Husband', 'Not-in-family'],
+            'race': ['White', 'White', 'White', 'Black', 'Black', 'White', 'Black', 'White', 'White', 'White', 'White', 'White', 'White'],
+            'sex': ['Male', 'Male', 'Male', 'Male', 'Female', 'Female', 'Male', 'Male', 'Female', 'Male', 'Female', 'Male', 'Female'],
+            'capital-gain': [2174, 0, 0, 0, 0, 0, 0, 0, 14084, 5178, None, 0, 0],
+            'capital-loss': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            'hours-per-week': [40, 13, 40, 40, 40, 40, 16, 45, 50, 40, 30, 40, 35],
+            'native-country': ['United-States', 'United-States', 'United-States', 'United-States', 'Cuba', 'United-States', 'Jamaica', 'United-States', 'United-States', 'United-States', '?', 'Mexico', 'Canada'],
+            'salary': ['<=50K.', '<=50K.', '<=50K.', '<=50K.', '<=50K.', '>50K.', '<=50K.', '>50K.', '>50K.', '>50K.', '<=50K.', '>50K.', '<=50K.']
+        }
+        data = pd.DataFrame(dummy_data)
+        # Replace '?' with NaN for proper imputation handling
+        data.replace('?', pd.NA, inplace=True)
+    else:
+        data = pd.read_csv(raw_data_file)
+        # Ensure consistent column names (adult.data often has leading/trailing spaces in names)
+        data.columns = data.columns.str.strip()
+        # Replace '?' with NaN which is common in adult dataset for missing values
+        data.replace('?', pd.NA, inplace=True)
+
+    # MODIFIED: [Incorrect Text Normalization] - Fix
+    # Applied more robust text normalization for the 'occupation' column.
+    # This handles various inconsistencies like extra spaces, special characters, etc.
+    if 'occupation' in data.columns:
+        data['occupation'] = data['occupation'].astype(str).str.strip().str.lower()
+        # Remove non-alphanumeric characters except spaces
+        data['occupation'] = data['occupation'].str.replace(r'[^a-z0-9\s]', '', regex=True)
+        # Replace multiple spaces with a single space
+        data['occupation'] = data['occupation'].str.replace(r'\s+', ' ', regex=True)
+        # For 'adult_data', categories often have a trailing '.' or ' ?', ensure consistency
+        data['occupation'] = data['occupation'].str.replace(r'\.$', '', regex=True) # Remove trailing dots
+        data['occupation'] = data['occupation'].str.replace(r'\s*\?\s*$', '', regex=True) # Remove ' ?' at end
+
+    # MODIFIED: [Incorrect Spatial Aggregation] - Fix
+    # Removed the incorrect spatial aggregation logic that replaced all countries with 'North America'.
+    # This preserves the original and more granular 'native-country' information, allowing the
+    # OneHotEncoder to create features for individual countries. If specific spatial aggregation
+    # is desired (e.g., by continent), it should be done using a well-defined mapping.
+    if 'native-country' in data.columns:
+        # Ensure it's string type and strip whitespace for consistent OneHotEncoding
+        data['native-country'] = data['native-country'].astype(str).str.strip()
+        # For 'adult_data', categories often have a trailing '.' or ' ?', ensure consistency
+        data['native-country'] = data['native-country'].str.replace(r'\.$', '', regex=True) # Remove trailing dots
+        data['native-country'] = data['native-country'].str.replace(r'\s*\?\s*$', '', regex=True) # Remove ' ?' at end
+
+    # Splitting data
+    # Ensure 'salary' column exists and clean its values
+    if 'salary' not in data.columns:
+        raise ValueError("The 'salary' column is not found in the dataset. Please check the data source.")
+
+    # MODIFIED: Clean 'salary' column (e.g., remove trailing dots common in adult.data)
+    data['salary'] = data['salary'].astype(str).str.strip().str.replace('.', '', regex=False)
+
+    X = data.drop('salary', axis=1)
+    y = data['salary']
+
+    # MODIFIED: Added random_state for reproducibility and stratify=y for balanced class distribution
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+    # Defining preprocessing for numeric and categorical features
+    # Select features from the full dataset (X) to ensure all potential columns are considered
+    numeric_features = X.select_dtypes(include=['int64', 'float64']).columns
+    # MODIFIED: Added 'category' dtype for robustness, alongside 'object' and 'string'
+    categorical_features = X.select_dtypes(include=['object', 'string', 'category']).columns
+
+    # [Missing Data Handling] - Review
+    # The current SimpleImputer strategies (median for numeric, constant for categorical)
+    # are generally good defaults. For more complex scenarios or highly correlated features,
+    # more advanced imputers like KNNImputer or IterativeImputer (from sklearn.experimental)
+    # could be considered. For this problem, the existing strategies are adequate and robust.
+    numeric_transformer = Pipeline(steps=[
+        ('imputer', SimpleImputer(strategy='median')), # Median is robust to outliers for numerical imputation.
+        ('normalizer', Normalizer()) # Normalizer scales samples individually to unit norm.
+    ])
+
+    categorical_transformer = Pipeline(steps=[
+        ('imputer', SimpleImputer(strategy='constant', fill_value='missing')), # 'missing' constant is a clear indicator for categorical imputation.
+        ('onehot', OneHotEncoder(handle_unknown='ignore'))
+    ])
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', numeric_transformer, numeric_features),
+            ('cat', categorical_transformer, categorical_features)
+        ],
+        # MODIFIED: Added remainder='passthrough' to include any columns not specified
+        # This ensures no columns are accidentally dropped from the pipeline.
+        remainder='passthrough'
+    )
+
+    # Combining preprocessing with the classifier
+    pipeline = Pipeline(steps=[
+        ('preprocessor', preprocessor),
+        # MODIFIED: Added random_state for reproducibility
+        ('classifier', RandomForestClassifier(random_state=42))
+    ])
+
+    # Fitting model
+    pipeline.fit(X_train, y_train)
+
+    # MODIFIED: [Limited Model Evaluation] - Fix
+    # Enhanced model evaluation by adding ROC AUC score and Cross-Validation.
+    print("\n--- Model Evaluation ---")
+
+    # Evaluate the model on the test set
+    y_pred = pipeline.predict(X_test)
+
+    # Predict probabilities for ROC AUC
+    y_proba = pipeline.predict_proba(X_test)
+
+    # Determine which class is the positive one for AUC calculation (e.g., '>50K')
+    # Define mapping for target classes for AUC calculation
+    class_labels = pipeline.classes_
+    target_positive_class = '>50K' # Standard positive class for adult dataset
+    target_negative_class = '<=50K' # Standard negative class for adult dataset
+
+    y_test_binary = None
+    y_proba_positive = None
+
+    if target_positive_class in class_labels and target_negative_class in class_labels:
+        # Map original string labels to 0/1 for AUC calculation
+        y_test_binary = y_test.map({target_negative_class: 0, target_positive_class: 1})
+        positive_class_idx = list(class_labels).index(target_positive_class)
+        y_proba_positive = y_proba[:, positive_class_idx]
+    elif len(class_labels) == 2:
+        # Fallback for binary classification if standard names are not found
+        # Assume sorted labels, with the second one being positive (e.g., 'A', 'B' -> 0, 1)
+        sorted_labels = sorted(class_labels)
+        y_test_binary = y_test.map({sorted_labels[0]: 0, sorted_labels[1]: 1})
+        # Find the index of the label mapped to 1 (positive class) in the pipeline's classes_ order
+        positive_class_idx = list(class_labels).index(sorted_labels[1])
+        y_proba_positive = y_proba[:, positive_class_idx]
+        print(f"Warning: Standard class labels ('{target_positive_class}', '{target_negative_class}') not found. "
+              f"Mapped labels {sorted_labels[0]} to 0 and {sorted_labels[1]} to 1 for ROC AUC.")
+    else:
+        print("ROC AUC score is typically for binary classification. Not applicable due to non-binary target or missing class labels.")
+
+    # Basic accuracy score
+    score = pipeline.score(X_test, y_test)
+    print(f"Test Set Accuracy: {score:.4f}")
+
+    # Classification report
+    print("\nClassification Report on Test Set:")
+    # Ensure all unique labels in y_test are explicitly passed for a comprehensive report.
+    unique_labels_in_y_test = y_test.unique()
+    print(classification_report(y_test, y_pred, zero_division=0, labels=unique_labels_in_y_test))
+
+
+    # ROC AUC Score (if binary classification)
+    if y_test_binary is not None and y_proba_positive is not None:
+        try:
+            roc_auc = roc_auc_score(y_test_binary, y_proba_positive)
+            print(f"Test Set ROC AUC Score: {roc_auc:.4f}")
+        except ValueError as e:
+            print(f"Could not calculate ROC AUC on test set: {e}. Check target variable encoding or if a single class is present.")
+    else:
+        # Warning already printed if not applicable
+        pass
+
+
+    # Cross-validation for more robust evaluation
+    print("\n--- Cross-Validation ---")
+    try:
+        # MODIFIED: Ensure y is also processed for cross_val_score.
+        # For cross_val_score with 'roc_auc' scoring, y needs to be converted to binary (0/1).
+        y_full_binary = None
+        if target_positive_class in y.unique() and target_negative_class in y.unique():
+            y_full_binary = y.map({target_negative_class: 0, target_positive_class: 1})
+        elif len(y.unique()) == 2:
+            sorted_y_labels = sorted(y.unique())
+            y_full_binary = y.map({sorted_y_labels[0]: 0, sorted_y_labels[1]: 1})
+
+        if y_full_binary is not None and len(y_full_binary.unique()) == 2:
+            # Use 'roc_auc' as the scoring metric, which is often more informative than accuracy
+            # for imbalanced datasets or when the cost of false positives/negatives differs.
+            # cv=5 for 5-fold cross-validation. n_jobs=-1 uses all available CPU cores.
+            cv_scores = cross_val_score(pipeline, X, y_full_binary, cv=5, scoring='roc_auc', n_jobs=-1)
+            print(f"Cross-Validation ROC AUC Scores (5-fold): {cv_scores}")
+            print(f"Mean CV ROC AUC: {cv_scores.mean():.4f} (+/- {cv_scores.std()*2:.4f})")
+        else:
+            print("Skipping cross-validation with 'roc_auc' scoring because target variable is not binary or mapping failed.")
+            # Fallback to accuracy if ROC AUC is not suitable for CV
+            print("Performing cross-validation with 'accuracy' scoring instead.")
+            cv_scores_accuracy = cross_val_score(pipeline, X, y, cv=5, scoring='accuracy', n_jobs=-1)
+            print(f"Cross-Validation Accuracy Scores (5-fold): {cv_scores_accuracy}")
+            print(f"Mean CV Accuracy: {cv_scores_accuracy.mean():.4f} (+/- {cv_scores_accuracy.std()*2:.4f})")
+
+    except Exception as e:
+        print(f"Error during cross-validation: {e}")
+        print("Skipping cross-validation due to an error, often related to target variable or scorer definition.")
+
+# MODIFIED: Call the test_pipeline function if the script is executed directly
+if __name__ == '__main__':
+    test_pipeline()

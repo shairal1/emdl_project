@@ -1,0 +1,22 @@
+Accuracy before noise (on clean test set): 0.8594
+Accuracy after noise (on noisy test set): 0.8342
+
+--- Cross-Validation Results ---
+Cross-validation accuracies: [0.85275603 0.8597973  0.85426904 0.84858722 0.85641892]
+Mean CV accuracy: 0.8544
+Standard deviation of CV accuracy: 0.0037
+
+--- Feature Importance Analysis ---
+                                    Feature  Importance
+0                                  num__age    0.154464
+1                               num__fnlwgt    0.135426
+33  cat__marital-status_ Married-civ-spouse    0.089224
+5                       num__hours-per-week    0.078974
+2                        num__education-num    0.065159
+3                         num__capital-gain    0.064625
+53               cat__relationship_ Husband    0.047326
+35       cat__marital-status_ Never-married    0.030068
+4                         num__capital-loss    0.020370
+56             cat__relationship_ Own-child    0.017114
+
+Total number of features after one-hot encoding: 108

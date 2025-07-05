@@ -1,0 +1,2 @@
+[Incorrect Text Normalization]: The occupation column undergoes basic lowercasing and replacement of hyphens with spaces, which might not be sufficient for effective text normalization. More advanced techniques like stemming, lemmatization, or stop word removal could be beneficial but are not implemented.
+[Incorrect Spatial Aggregation]: The native-country feature is aggregated into a single 'North America' value, losing potentially valuable geographic information and creating a high-bias feature.

@@ -1,0 +1,12 @@
+Cross-validation accuracy scores: [0.82744722 0.84107486 0.82879079 0.84046842 0.8421962 ]
+Mean CV accuracy: 0.84 +/- 0.01
+Model accuracy on test set: 0.84
+              precision    recall  f1-score   support
+
+       <=50K       0.88      0.92      0.90      4942
+        >50K       0.71      0.60      0.65      1571
+
+    accuracy                           0.84      6513
+   macro avg       0.79      0.76      0.77      6513
+weighted avg       0.84      0.84      0.84      6513
+

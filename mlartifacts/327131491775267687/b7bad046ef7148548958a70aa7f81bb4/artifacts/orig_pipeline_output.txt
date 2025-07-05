@@ -1,0 +1,2 @@
+Accuracy before noise: 0.8607400583448488
+Accuracy after noise: 0.8366344234607708

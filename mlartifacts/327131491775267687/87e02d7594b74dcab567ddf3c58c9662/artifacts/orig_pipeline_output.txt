@@ -1,0 +1,10 @@
+Model accuracy: 0.83
+              precision    recall  f1-score   support
+
+       <=50K       0.87      0.91      0.89      4904
+        >50K       0.70      0.59      0.64      1609
+
+    accuracy                           0.83      6513
+   macro avg       0.78      0.75      0.77      6513
+weighted avg       0.83      0.83      0.83      6513
+
