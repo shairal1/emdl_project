@@ -1,0 +1,15 @@
+Performing Cross-Validation...
+Cross-Validation Accuracy: 0.842 (+/- 0.003)
+All CV Scores: [0.84108706 0.83737715 0.84474816 0.84505528 0.84290541]
+
+Fitting model on training data for final test set evaluation...
+Model accuracy on test set: 0.84
+              precision    recall  f1-score   support
+
+       <=50K       0.88      0.92      0.90      4942
+        >50K       0.71      0.60      0.65      1571
+
+    accuracy                           0.84      6513
+   macro avg       0.80      0.76      0.78      6513
+weighted avg       0.84      0.84      0.84      6513
+

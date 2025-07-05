@@ -1,0 +1,4 @@
+Shape of training features: (5771, 12)
+Shape of testing features: (1443, 12)
+Shape of training labels: (5771,)
+Shape of testing labels: (1443,)

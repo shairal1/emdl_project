@@ -1,0 +1,14 @@
+Classification Report on Test Set:
+              precision    recall  f1-score   support
+
+       <=50K       0.88      0.94      0.91      4942
+        >50K       0.75      0.61      0.67      1571
+
+    accuracy                           0.86      6513
+   macro avg       0.82      0.77      0.79      6513
+weighted avg       0.85      0.86      0.85      6513
+
+
+Cross-validation scores (accuracy) on Training Set:
+Mean CV Accuracy: 0.8513
+CV Scores: [0.84856046 0.85220729 0.85047985 0.85179497 0.85352275]

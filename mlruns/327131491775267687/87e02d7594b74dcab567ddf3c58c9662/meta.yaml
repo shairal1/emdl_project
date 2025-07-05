@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/327131491775267687/87e02d7594b74dcab567ddf3c58c9662/artifacts
+deleted_time: 1751576562539
+end_time: 1751576545244
+entry_point_name: ''
+experiment_id: '327131491775267687'
+lifecycle_stage: deleted
+run_id: 87e02d7594b74dcab567ddf3c58c9662
+run_name: autofix_gemini_openhands-automation\pipelines\aggregation_errors\
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1751576495525
+status: 4
+tags: []
+user_id: ahelm

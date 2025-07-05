@@ -1,0 +1,41 @@
+Missing values after imputation and encoding:
+PassengerId    0
+Survived       0
+Pclass         0
+Sex            0
+Age            0
+SibSp          0
+Parch          0
+Fare           0
+Embarked       0
+dtype: int64
+Missing values in X_train:
+PassengerId    0
+Pclass         0
+Sex            0
+Age            0
+SibSp          0
+Parch          0
+Fare           0
+Embarked       0
+dtype: int64
+Missing values in X_test:
+PassengerId    0
+Pclass         0
+Sex            0
+Age            0
+SibSp          0
+Parch          0
+Fare           0
+Embarked       0
+dtype: int64
+Accuracy: 1.0
+Classification Report:               precision    recall  f1-score   support
+
+           0       1.00      1.00      1.00        85
+           1       1.00      1.00      1.00        41
+
+    accuracy                           1.00       126
+   macro avg       1.00      1.00      1.00       126
+weighted avg       1.00      1.00      1.00       126
+
