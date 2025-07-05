@@ -1,9 +1,8 @@
 import traceback
-import re
-
 from google import genai
 from time import sleep
-
+from pathlib import Path
+import os
 API_KEY = "AIzaSyDWklovIvU6F6n3xUqQiqIvpDVTmx53zdc"  # Replace with your own API key
 client = genai.Client(api_key=API_KEY)
 MODEL = "gemini-2.0-flash"
@@ -15,8 +14,13 @@ def try_run_pipeline(code):
         return None, None
     except Exception as e:
         return str(e), traceback.format_exc()
-def ask_gemini_to_find_problems(code: str) -> str:
-    # prompt for Gemini to identify the ML problems and  return them in the specified format.
+def ask_gemini_to_find_problems(code: str) -> tuple[str, list[str]]:
+    """Sends the code to Gemini to identify ML problems and returns the response text and problem titles."""
+    # Remove comments from the code
+    # This is done to avoid Gemini getting hints on the problems in the code
+    stripped_code = "\n".join(
+        line for line in code.splitlines() if not line.lstrip().startswith("#")
+    )
     prompt = f"""
     I will give you a Python code snippet. Your task is to identify all the machine learning (ML) problems in the code and describe them in detail.
     Do not provide any code fixes, just list the problems.
@@ -38,7 +42,7 @@ def ask_gemini_to_find_problems(code: str) -> str:
     Repeat this format exactly. Do not alter it.
 
     Here is the code:
-    {code}
+    {stripped_code}
     """              
     response = client.models.generate_content(
         model=MODEL,
@@ -56,7 +60,6 @@ def ask_gemini_to_find_problems(code: str) -> str:
     return response.text, titles
 
 
-from pathlib import Path
 def list_pipelines(directory: str = "example_pipelines") -> list[str]:
     """Lists all Python files in the specified directory."""
     path = Path(directory)
@@ -64,28 +67,48 @@ def list_pipelines(directory: str = "example_pipelines") -> list[str]:
     pipelines = []
     for folder in pipeline_folders:
         #getting all python files in the folder that need to be fixed
-        pipelines.extend([str(file) for file in folder.glob("*.py") if "fixed" not in file.name])
+        pipelines.extend([str(file) for file in folder.glob("*.py") if ("Gemini" not in file.name) and ("fixed" not in file.name)   ])
+
     return pipelines
 # if this code is run from the command lines it will list all the pipelines in the example_pipelines directory and try to find problems in them using Gemini.
 # It will create a file with the same name as the pipeline but with _problems.txt appended to it, containing the problems found by Gemini.
 def main():
-    pipelines = list_pipelines()
-    for i, pipeline in enumerate(pipelines):
-        print(f"Processing pipeline: {pipeline}", i)
-        with open(pipeline, "r", encoding="utf-8") as f:
-            code = f.read() 
-        # Try finding problems in the pipeline
-        try:
-            text, problems = ask_gemini_to_find_problems(code)
-        except Exception as e:
-            print("max TPM reached, waiting 60 seconds")
+    # the commented code is used to test pipelines whwith the ml_piped repository we can chanfge it later ot do this
+    # pipelines = list_pipelines()
+    # for i, pipeline in enumerate(pipelines):
+    #     print(f"Processing pipeline: {pipeline}", i)
+    #     with open(pipeline, "r", encoding="utf-8") as f:
+    #         code = f.read() 
+    #     # Try finding problems in the pipeline
+    #     try:
+    #         text, problems = ask_gemini_to_find_problems(code)
+    #     except Exception as e:
+    #         print("max TPM reached, waiting 60 seconds")
+    #         sleep(60)
+    #         text, problems = ask_gemini_to_find_problems(code)
+    #     with open(pipeline.replace(".py", "_problems.txt"), "w", encoding="utf-8") as f:
+    #         f.write(text)
+    #     print(f"Problems found in {pipeline}:")
+    #     for problem in problems:
+    #         print(f"- {problem}")
+    # use for the example code we have.
+    pipeline = "LLM_automation/test_pipeline/pipeline.py"
+    print(f"looking for pipeline in {os.path.abspath(pipeline)}")
+    print(f"Processing pipeline: {pipeline}")
+    with open(pipeline, 'r') as f:
+        code = f.read()
+    try:
+        text, problems = ask_gemini_to_find_problems(code)
+    except Exception as e:
+        if "max TPM reached" in str(e):
+            print("Max TPM reached, waiting 60 seconds")
             sleep(60)
             text, problems = ask_gemini_to_find_problems(code)
-        with open(pipeline.replace(".py", "_problems.txt"), "w", encoding="utf-8") as f:
-            f.write(text)
-        print(f"Problems found in {pipeline}:")
-        for problem in problems:
-            print(f"- {problem}")
+        else:
+            print("An error occurred:", e)
+            return
+    print(f"Problems found in {pipeline}:")
+    print(text)
 
 if __name__ == "__main__":
     main()

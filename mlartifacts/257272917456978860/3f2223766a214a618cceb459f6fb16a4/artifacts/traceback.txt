@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "C:\Users\ahelm\Desktop\project\LLM_automation\dynamic_correct.py", line 26, in try_run_pipeline
+    exec(code_str, {
+  File "<string>", line 36, in <module>
+FileNotFoundError: Data file not found: 'C:\Users\ahelm\Desktop\project\data\adult_data.csv'
+Please ensure 'adult_data.csv' is located in the 'data' subdirectory of your project's root directory.

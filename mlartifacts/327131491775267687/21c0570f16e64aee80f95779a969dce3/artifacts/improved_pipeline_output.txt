@@ -1,0 +1,17 @@
+--- Cross-validation Results ---
+Cross-validation Accuracy: 0.8562 (+/- 0.0041)
+------------------------------
+Accuracy: 0.8610471364962383
+Classification report:
+              precision    recall  f1-score   support
+
+           0       0.89      0.93      0.91      4942
+           1       0.75      0.64      0.69      1571
+
+    accuracy                           0.86      6513
+   macro avg       0.82      0.78      0.80      6513
+weighted avg       0.86      0.86      0.86      6513
+
+Confusion Matrix:
+[[4606  336]
+ [ 569 1002]]

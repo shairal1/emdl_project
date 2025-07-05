@@ -1,0 +1,19 @@
+Raw data gender distribution:
+ Sex
+0.0    0.54
+1.0    0.46
+Name: proportion, dtype: float64
+Test set gender distribution:
+ Sex
+0.0    0.54
+1.0    0.46
+Name: proportion, dtype: float64
+              precision    recall  f1-score   support
+
+         0.0       0.76      0.73      0.74      7070
+         1.0       0.74      0.76      0.75      7069
+
+    accuracy                           0.75     14139
+   macro avg       0.75      0.75      0.75     14139
+weighted avg       0.75      0.75      0.75     14139
+
