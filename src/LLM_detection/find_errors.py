@@ -110,5 +110,23 @@ def main():
     print(f"Problems found in {pipeline}:")
     print(text)
 
+def dynamic_correct_folder(filepath = "openhands-automation/pipelines/"):
+    """
+    Corrects all Python files in the specified folder.
+    """
+    pipelines = list_pipelines(filepath)
+    for i, pipeline in enumerate(pipelines):
+        print(f"Processing pipeline: {pipeline}", i)
+        with open(pipeline, "r", encoding="utf-8") as f:
+            code = f.read() 
+        # Try finding problems in the pipeline
+        try:
+            main(pipeline.replace("example-0.py", ""), pipeline_name="example-0")
+        except Exception as e:
+            print("An error occurred:", e)
+            print("max TPM reached, waiting 60 seconds")
+            sleep(60)
+            main(filepath.replace("example-0.py", ""), pipeline_name="example-0")
+
 if __name__ == "__main__":
     main()
