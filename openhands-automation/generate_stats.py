@@ -19,26 +19,28 @@ You are given five code blocks:
 ### Your task  
 Compare **AI_FIXED_CODE** against **FIXED_CODE** (using **ORIGINAL_CODE** for context) and decide, *with respect only to the issue named in **##ISSUE_NAME##***:
 
-1. **issue_detected** - Did the AI’s summary clearly acknowledge the named issue and attempt to address it?  
-2. **issue_fixed** - Did the AI’s code changes actually solve the named issue in the same way (or an equally valid way) as the human fix?  
+1. **issue_detected** - Did the AI's summary clearly acknowledge the named issue and attempt to address it?  
+2. **issue_fixed** - Did the AI's code changes actually solve the named issue in the same way (or an equally valid way) as the human fix?  
 3. **false_positive** - Did the AI modify code that was already correct but unrelated to the named issue? Only set to **true** if those changes affect the ML pipeline itself and did not help resolve the named issue; ignore any edits to imports, logging, script structure, formatting, or other non-pipeline aspects; always **false** if the named issue was correctly fixed.
+4. **lines_changed** - Count the number of distinct modifications the AI made to the ML pipeline. AI Added #FIXED comments for that. 
 
 Ignore all other differences (logging, paths, formatting, etc.) that are not directly related to **##ISSUE_NAME##**.
 
 ---
 
 ### Output  
-Return **only** the following JSON object – no extra text:
+Return **only** the following JSON object - no extra text:
 
 {
   "issue_detected": boolean,         // true ⇢ AI acknowledged & targeted the named issue (or fixed it without mentioning)
-  "issue_fixed": boolean,            // true ⇢ AI’s changes resolve the issue as well as the human fix
+  "issue_fixed": boolean,            // true ⇢ AI's changes resolve the issue as well as the human fix
   "false_positive": boolean,         // true ⇢ AI introduced changes to the ML pipeline outside the scope of the named issue and did not help resolve it; ignore any edits to imports, logging, script structure, formatting, or other non-pipeline aspects; always false if the named issue was correctly fixed.
   "description": {
     "issue_detection": "short reason for true/false",
     "issue_fix": "short reason for true/false",
     "false_positive": "short reason for true/false"
-  }
+  },
+  "lines_changed": number // Count of distinct modifications made by the AI to the ML pipeline, marked with #FIXED comments
 }
 
 Only return the JSON object — no additional text or explanation.

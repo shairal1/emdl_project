@@ -1,12 +1,12 @@
-"""
-Summary of fixes:
-1. Added stratify parameter to train_test_split to preserve class distribution.
-2. Removed unnecessary sys.path manipulation for cleaner imports.
-3. Moved scaling before SMOTE to ensure SMOTE operates on standardized features.
-4. Added random_state to LogisticRegression for reproducibility.
-5. Added handling for potential missing values in the dataset.
-"""
+# Summary of fixes:
+# 1. Added stratify=y to train_test_split to maintain target distribution.
+# 2. Scaled features before oversampling and feature selection to ensure proper normalization.
+# 3. Applied SMOTE on scaled training data to generate synthetic samples on normalized features.
+# 4. Performed feature selection after SMOTE to select features based on balanced data.
+# 5. Specified random_state in LogisticRegression for reproducibility.
+
 import os
+import sys
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import SelectKBest, f_classif
@@ -15,52 +15,42 @@ from imblearn.over_sampling import SMOTE
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+
 from utils import get_project_root
 
-def main():
-    # Locate the raw data file
-    project_root = get_project_root()
-    raw_data_file = os.path.join(
-        project_root, "datasets", "diabetes_indicator", "5050_split.csv"
-    )
-    data = pd.read_csv(raw_data_file)
+project_root = get_project_root()
 
-    # Handle missing values if any
-    if data.isnull().values.any():
-        data = data.dropna()
+raw_data_file = os.path.join(project_root, "datasets", "diabetes_indicator", "5050_split.csv")
+data = pd.read_csv(raw_data_file)
 
-    # Separate features and target
-    X = data.drop("Diabetes_binary", axis=1)
-    y = data["Diabetes_binary"]
+X = data.drop('Diabetes_binary', axis=1)
+y = data['Diabetes_binary']
+#FIXED: Added stratify parameter to maintain class distribution
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
 
-    # Split with stratification to maintain class balance
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, stratify=y, random_state=42
-    )
+#FIXED: Scale features before SMOTE and feature selection
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
 
-    # Select top-k features
-    selector = SelectKBest(score_func=f_classif, k=10)
-    X_train_selected = selector.fit_transform(X_train, y_train)
-    X_test_selected = selector.transform(X_test)
+#FIXED: Applied SMOTE on scaled training data
+smote = SMOTE(random_state=42)
+X_train_resampled, y_train_resampled = smote.fit_resample(X_train_scaled, y_train)
 
-    # Standardize features before oversampling
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train_selected)
-    X_test_scaled = scaler.transform(X_test_selected)
+#FIXED: Performed feature selection after SMOTE
+selector = SelectKBest(f_classif, k=10)
+X_train_selected = selector.fit_transform(X_train_resampled, y_train_resampled)
+X_test_selected = selector.transform(X_test_scaled)
 
-    # Oversample the minority class
-    smote = SMOTE(random_state=42)
-    X_train_resampled, y_train_resampled = smote.fit_resample(
-        X_train_scaled, y_train
-    )
+#FIXED: Set random_state for reproducibility in LogisticRegression
+model = LogisticRegression(max_iter=1000, random_state=42)
+model.fit(X_train_selected, y_train_resampled)
 
-    # Train the classifier
-    model = LogisticRegression(max_iter=1000, random_state=42)
-    model.fit(X_train_resampled, y_train_resampled)
 
-    # Evaluate on the test set
-    y_pred = model.predict(X_test_scaled)
-    print(classification_report(y_test, y_pred))
-
-if __name__ == "__main__":
-    main()
+y_pred = model.predict(X_test_selected)
+print(classification_report(y_test, y_pred))

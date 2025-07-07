@@ -1,86 +1,76 @@
-# Summary of fixes:
-# - Removed unnecessary sys.path manipulation; import get_project_root directly.
-# - Wrapped execution in a main() function with if __name__ == "__main__" guard.
-# - Added error handling for missing data file (FileNotFoundError).
-# - Encoded target variable 'Income' with LabelEncoder for numeric compatibility.
-# - Preprocessed features: scaled numeric columns with StandardScaler and one-hot encoded categorical columns with OneHotEncoder.
-# - Combined preprocessing and model into a sklearn Pipeline for clarity and robustness.
-# - Set random_state in train_test_split and LogisticRegression for reproducibility.
-# - Enhanced classification report to display original class names.
-
+"""
+Summary of fixes:
+- Added stratified train-test split to maintain class distribution (stratify=y).
+- Handled missing values by specifying na_values and dropping rows with missing data.
+- Standardized features using StandardScaler before model fitting for numerical stability.
+- Wrapped execution code in a main() function with a __name__ == "__main__" guard.
+- Added error handling for missing data file.
+"""
 import os
+import sys
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler, OneHotEncoder
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
+#FIXED
+from sklearn.preprocessing import StandardScaler
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+
 from utils import get_project_root
 
+#FIXED
+
+def load_data(file_path):
+    #FIXED
+    if not os.path.exists(file_path):
+        #FIXED
+        raise FileNotFoundError(f"Data file not found: {file_path}")
+    #FIXED
+    data = pd.read_csv(file_path, na_values=["?", "NA", ""])
+    #FIXED
+    missing = data.isnull().sum().sum()
+    #FIXED
+    if missing > 0:
+        #FIXED
+        print(f"Found {missing} missing values. Dropping rows.")
+        #FIXED
+        data = data.dropna()
+    #FIXED
+    return data
+
+#FIXED
+
 def main():
-    # Determine project root and data path
     project_root = get_project_root()
-    raw_data_file = os.path.join(
-        project_root,
-        "datasets",
-        "diabetes_indicator",
-        "binary_health_indicators.csv"
-    )
+    raw_data_file = os.path.join(project_root, "datasets", "diabetes_indicator", "binary_health_indicators.csv")
+    #FIXED
+    data = load_data(raw_data_file)
 
-    # Load data with error handling
-    try:
-        data = pd.read_csv(raw_data_file)
-    except FileNotFoundError:
-        print(f"Error: Data file not found at {raw_data_file}")
-        return
+    print("Class distribution in raw data:\n", data['Income'].value_counts(normalize=True).round(2))
 
-    # Display class distribution
-    print("Class distribution in raw data:\n",
-          data['Income'].value_counts(normalize=True).round(2))
-
-    # Separate features and target
     X = data.drop('Income', axis=1)
     y = data['Income']
-
-    # Encode the target variable as numeric
-    le = LabelEncoder()
-    y_encoded = le.fit_transform(y)
-
-    # Split into train and test sets
+    #FIXED
     X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y_encoded,
-        test_size=0.2,
-        random_state=42
+        X, y, test_size=0.2, random_state=42, stratify=y
     )
+    #FIXED
+    scaler = StandardScaler()
+    #FIXED
+    X_train = scaler.fit_transform(X_train)
+    #FIXED
+    X_test = scaler.transform(X_test)
 
-    # Identify numeric and categorical feature columns
-    numeric_features = X_train.select_dtypes(include=['int64', 'float64']).columns.tolist()
-    categorical_features = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
+    model = LogisticRegression(max_iter=5000)
+    model.fit(X_train, y_train)
 
-    # Build preprocessing pipeline
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ('num', StandardScaler(), numeric_features),
-            ('cat', OneHotEncoder(drop='first', sparse=False), categorical_features)
-        ]
-    )
+    y_pred = model.predict(X_test)
+    print(classification_report(y_test, y_pred))
 
-    # Complete modeling pipeline
-    pipeline = Pipeline(steps=[
-        ('preprocessor', preprocessor),
-        ('classifier', LogisticRegression(max_iter=5000, random_state=42))
-    ])
-
-    # Train model
-    pipeline.fit(X_train, y_train)
-
-    # Make predictions and evaluate
-    y_pred = pipeline.predict(X_test)
-    print("\nClassification Report:")
-    print(classification_report(y_test, y_pred, target_names=le.classes_))
-
-
+#FIXED
 if __name__ == "__main__":
+    #FIXED
     main()

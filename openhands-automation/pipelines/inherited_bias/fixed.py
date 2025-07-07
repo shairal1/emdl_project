@@ -1,110 +1,70 @@
-"""
-fixed.py
-
-Summary of fixes:
-- Added na_values parameter to pd.read_csv to parse '?' as NaN and dropped missing values.
-- Encoded target variable y using LabelEncoder for compatibility with LogisticRegression.
-- Separated numeric and categorical preprocessing: numeric features imputed (mean) and scaled; categorical features imputed (most frequent) and one-hot encoded with sparse output disabled to avoid sparse matrix issues.
-- Wrapped script execution in main() function and protected with if __name__ == '__main__' guard to allow safe imports.
-- Replaced manual sys.path manipulation with a get_root_dir fallback using pathlib when utils.get_project_root is unavailable.
-- Set random_state in LogisticRegression for reproducibility and specified solver='lbfgs'.
-"""
+# Summary of fixes:
+# 1. Handled missing values: replaced '?' with NaN and dropped missing rows.
+# 2. Added StandardScaler for numeric features.
+# 3. Configured OneHotEncoder to output dense array (sparse=False).
+# 4. Added stratify=y in train_test_split for reproducibility.
+# 5. Added random_state=42 to LogisticRegression for reproducibility.
 
 import os
 import sys
-from pathlib import Path
-
 import pandas as pd
+#FIXED
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
-from sklearn.preprocessing import OneHotEncoder, StandardScaler, LabelEncoder
-from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+#FIXED
+from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 
-def get_root_dir():
-    """Determine project root directory."""
-    try:
-        from utils import get_project_root
-        return get_project_root()
-    except ImportError:
-        # Fallback: parent directory of this script
-        return Path(__file__).resolve().parents[1]
+from utils import get_project_root
 
+project_root = get_project_root()
 
-def load_data(root_dir):
-    """Load and preprocess raw data."""
-    raw_data_file = Path(root_dir) / "datasets" / "adult_data" / "adult_data.csv"
-    data = pd.read_csv(raw_data_file, na_values='?')
-    # Drop rows with missing values
-    data.dropna(inplace=True)
-    return data
+raw_data_file = os.path.join(project_root, "datasets", "adult_data", "adult_data.csv")
+data = pd.read_csv(raw_data_file)
 
+#FIXED
+# Handle missing values
+#FIXED
+data.replace('?', np.nan, inplace=True)
+#FIXED
+data.dropna(inplace=True)
 
-def build_pipeline(X):
-    """Build a preprocessing and modeling pipeline."""
-    # Identify categorical and numeric columns
-    categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
-    numeric_cols = X.select_dtypes(include=['number']).columns.tolist()
+X = data.drop('salary', axis=1)
+y = data['salary']
 
-    # Numeric preprocessing: impute missing and scale
-    numeric_transformer = Pipeline([
-        ('imputer', SimpleImputer(strategy='mean')),
-        ('scaler', StandardScaler())
-    ])
+categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
+#FIXED
+numeric_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
 
-    # Categorical preprocessing: impute and one-hot encode (dense output)
-    categorical_transformer = Pipeline([
-        ('imputer', SimpleImputer(strategy='most_frequent')),
-        ('onehot', OneHotEncoder(handle_unknown='ignore', sparse=False))
-    ])
+#FIXED
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', StandardScaler(), numeric_cols),
+        ('cat', OneHotEncoder(handle_unknown='ignore', sparse=False), categorical_cols)
+    ],
+    remainder='passthrough'  # Leave the rest of the columns untouched
+)
 
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ('num', numeric_transformer, numeric_cols),
-            ('cat', categorical_transformer, categorical_cols)
-        ]
-    )
+model_pipeline = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    #FIXED
+    ('classifier', LogisticRegression(max_iter=1000, random_state=42))
+])
 
-    model = Pipeline([
-        ('preprocessor', preprocessor),
-        ('classifier', LogisticRegression(max_iter=1000, solver='lbfgs', random_state=42))
-    ])
+#FIXED
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
 
-    return model
+model_pipeline.fit(X_train, y_train)
 
-
-def main():
-    # Determine project root and load data
-    project_root = get_root_dir()
-    data = load_data(project_root)
-
-    # Split features and target
-    X = data.drop('salary', axis=1)
-    y = data['salary']
-
-    # Encode target labels
-    le = LabelEncoder()
-    y = le.fit_transform(y)
-
-    # Split into train and test sets
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
-
-    # Build and train pipeline
-    pipeline = build_pipeline(X_train)
-    pipeline.fit(X_train, y_train)
-
-    # Evaluate
-    y_pred = pipeline.predict(X_test)
-    print(classification_report(
-        y_test, y_pred, zero_division=0, target_names=le.classes_
-    ))
-
-
-if __name__ == '__main__':
-    main()
+y_pred = model_pipeline.predict(X_test)
+print(classification_report(y_test, y_pred, zero_division=0))

@@ -1,13 +1,9 @@
-# fixed.py
-# 
 # Summary of fixes:
-# - Replaced label_binarize with LabelEncoder to correctly encode the binary target as a 1D array.
-# - Restricted replacement of 'Medium' to the 'score_text' column only, avoiding unintended replacements elsewhere.
-# - Removed the redundant 'dob' and target-leaking 'two_year_recid' columns from the feature set.
-# - Added full preprocessing for all features using ColumnTransformer:
-#     * Numeric features: SimpleImputer(strategy='mean') + StandardScaler()
-#     * Categorical features: SimpleImputer(strategy='most_frequent') + OneHotEncoder(handle_unknown='ignore')
-# - Cleaned up imports (removed unused label_binarize) and increased max_iter for LogisticRegression to ensure convergence.
+# - Fixed label encoding: replaced label_binarize with binary mapping.
+# - Dropped 'dob' column from features.
+# - Added preprocessing pipelines for categorical ('sex', 'c_charge_degree', 'race', 'is_recid') and numeric features ('priors_count','days_b_screening_arrest','decile_score','two_year_recid','c_jail_in','c_jail_out') with imputation and encoding/scaling.
+# - Updated ColumnTransformer to include all specified features and set remainder='drop'.
+# - Added solver='liblinear' to LogisticRegression for compatibility.
 
 import os
 import sys
@@ -16,84 +12,74 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler, LabelEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, KBinsDiscretizer  #FIXED
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 
-# ensure parent directory is on path for utils import
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from utils import get_project_root
 
-# load data
 project_root = get_project_root()
+
 raw_data_file = os.path.join(project_root, "datasets", "compas_scores", "compas-scores-two-years.csv")
 raw_data = pd.read_csv(raw_data_file)
 
-# select relevant columns and copy
-columns_to_use = [
-    'sex', 'age', 'c_charge_degree', 'race', 'priors_count',
-    'days_b_screening_arrest', 'decile_score', 'is_recid',
-    'c_jail_in', 'c_jail_out', 'score_text'
-]
-data = raw_data[columns_to_use].copy()
+train_data, test_data = train_test_split(raw_data, test_size=0.2, random_state=42)
 
-# map 'Medium' risk to 'Low' in score_text only
-data['score_text'] = data['score_text'].replace('Medium', 'Low')
+columns_to_use = ['sex', 'age', 'c_charge_degree', 'race', 'score_text', 'priors_count', 'days_b_screening_arrest',
+                  'decile_score', 'is_recid', 'two_year_recid', 'c_jail_in', 'c_jail_out']  #FIXED
 
-# split into train/test
-train_data, test_data = train_test_split(data, test_size=0.2, random_state=42)
+train_data = train_data[columns_to_use]
+test_data = test_data[columns_to_use]
 
-# encode target
-label_encoder = LabelEncoder()
-train_labels = label_encoder.fit_transform(train_data['score_text'])
-test_labels = label_encoder.transform(test_data['score_text'])
+print("Shape of training data:", train_data.shape)
+print("Shape of testing data:", test_data.shape)
 
-# drop target from feature sets
+train_data = train_data.replace('Medium', "Low")
+test_data = test_data.replace('Medium', "Low")
+
+# Target encoding: map 'High' to 1, 'Low' to 0 instead of label_binarize  #FIXED
+train_labels = (train_data['score_text'] == 'High').astype(int)  #FIXED
+test_labels = (test_data['score_text'] == 'High').astype(int)  #FIXED
+
 train_data = train_data.drop(columns=['score_text'])
 test_data = test_data.drop(columns=['score_text'])
 
-# define features by type
-categorical_features = ['sex', 'c_charge_degree', 'race', 'is_recid']
-numeric_features = [
-    'age', 'priors_count', 'days_b_screening_arrest',
-    'decile_score', 'c_jail_in', 'c_jail_out'
-]
+train_data.reset_index(drop=True, inplace=True)
+test_data.reset_index(drop=True, inplace=True)
 
-# pipelines for preprocessing
-categorical_pipeline = Pipeline([
-    ('imputer', SimpleImputer(strategy='most_frequent')),
-    ('onehot', OneHotEncoder(handle_unknown='ignore'))
-])
+# Preprocessing pipelines  #FIXED
+cat_impute_and_onehot = Pipeline([  #FIXED
+    ('imputer', SimpleImputer(strategy='most_frequent')),  #FIXED
+    ('onehot', OneHotEncoder(handle_unknown='ignore'))  #FIXED
+])  #FIXED
 
-numeric_pipeline = Pipeline([
-    ('imputer', SimpleImputer(strategy='mean')),
-    ('scaler', StandardScaler())
-])
+age_impute_and_bin = Pipeline([  #FIXED
+    ('imputer', SimpleImputer(strategy='mean')),  #FIXED
+    ('discretizer', KBinsDiscretizer(n_bins=4, encode='ordinal', strategy='uniform'))  #FIXED
+])  #FIXED
 
-preprocessor = ColumnTransformer(
-    transformers=[
-        ('num', numeric_pipeline, numeric_features),
-        ('cat', categorical_pipeline, categorical_features)
-    ]
-)
+num_impute_and_scale = Pipeline([  #FIXED
+    ('imputer', SimpleImputer(strategy='mean')),  #FIXED
+    ('scaler', StandardScaler())  #FIXED
+])  #FIXED
 
-# build and train full pipeline
-pipeline = Pipeline([
-    ('preprocessor', preprocessor),
-    ('classifier', LogisticRegression(max_iter=1000))
-])
+featurizer = ColumnTransformer(transformers=[  #FIXED
+    ('cat_basic', cat_impute_and_onehot, ['sex', 'c_charge_degree', 'race']),  #FIXED
+    ('cat_recid', cat_impute_and_onehot, ['is_recid']),  #FIXED
+    ('age_bins', age_impute_and_bin, ['age']),  #FIXED
+    ('num', num_impute_and_scale, ['priors_count', 'days_b_screening_arrest', 'decile_score',  #FIXED
+                                   'two_year_recid', 'c_jail_in', 'c_jail_out'])  #FIXED
+], remainder='drop')  #FIXED
+
+pipeline = Pipeline(steps=[('featurizer', featurizer),
+                           ('classifier', LogisticRegression(solver='liblinear'))])  #FIXED
 
 pipeline.fit(train_data, train_labels)
 
-# evaluate
-accuracy = pipeline.score(test_data, test_labels)
-print(f"Model accuracy: {accuracy:.4f}")
-print(classification_report(
-    test_labels,
-    pipeline.predict(test_data),
-    zero_division=0,
-    target_names=label_encoder.classes_
-))
+print("Model score:", pipeline.score(test_data, test_labels))
+
+print(classification_report(test_labels, pipeline.predict(test_data), zero_division=0))

@@ -1,82 +1,75 @@
-"""
-Summary of fixes:
-1. Removed unnecessary sys.path manipulation and rely on get_project_root for locating project root.
-2. Dropped potential leakage features ('decile_score', 'score_factor') and identifiers to avoid data leakage.
-3. Added stratify=y in train_test_split to preserve class distribution.
-4. Replaced manual LabelEncoder for features with OneHotEncoder in a ColumnTransformer.
-5. Applied median imputation for numeric features and most frequent for categorical features.
-6. Integrated preprocessing and classification into a sklearn Pipeline for consistency.
-7. Set RandomForestClassifier n_jobs=-1 for performance and random_state=42 for reproducibility.
-8. Removed manual LabelEncoder for target; classifier now handles string labels directly.
-"""
+# Summary of fixes:
+# - Added Pipeline and ColumnTransformer for preprocessing of numeric and categorical features
+# - Numeric features imputed with median, categorical with most frequent and OneHotEncoded to avoid ordinal encoding
+# - Removed manual LabelEncoder for features and target, relying on classifier for label encoding
+# - Included stratify=y in train_test_split to preserve class distribution
+# - Wrapped script execution in main() under if __name__ guard
+# - Improved print format for classification report
+
 import os
+import sys
 import pandas as pd
-from pathlib import Path
-from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
+from sklearn.impute import SimpleImputer
+#FIXED from sklearn.preprocessing import OneHotEncoder
+#FIXED from sklearn.pipeline import Pipeline
+#FIXED from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+
 from utils import get_project_root
 
+#FIXED def main():
 def main():
     project_root = get_project_root()
-    raw_data_file = Path(project_root) / "datasets" / "compas_scores" / "compas-scores-two-years.csv"
+    raw_data_file = os.path.join(project_root, "datasets", "compas_scores", "compas-scores-two-years.csv")
     raw_data = pd.read_csv(raw_data_file)
 
-    # Drop target and leakage identifiers
-    drop_cols = [
-        'score_text',          # target
-        'decile_score',        # direct numeric mapping of target
-        'score_factor',        # derived features relating to target
-        'id', 'name', 'c_case_number',  # unique identifiers
-        'compas_screening_date', 'dob'  # date fields
-    ]
-    X = raw_data.drop(columns=[c for c in drop_cols if c in raw_data.columns])
+    X = raw_data.drop('score_text', axis=1)
     y = raw_data['score_text']
 
-    # Separate feature types
-    numeric_features = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
-    categorical_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
+    #FIXED numeric and categorical feature lists
+    numeric_cols = X.select_dtypes(include=['number']).columns.tolist()
+    #FIXED detect objects and categories for categorical
+    categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
 
-    # Preprocessing pipelines
-    numeric_pipeline = Pipeline([
+    #FIXED pipelines for numeric and categorical
+    numeric_transformer = Pipeline(steps=[
         ('imputer', SimpleImputer(strategy='median'))
     ])
-    categorical_pipeline = Pipeline([
+    categorical_transformer = Pipeline(steps=[
         ('imputer', SimpleImputer(strategy='most_frequent')),
-        ('onehot', OneHotEncoder(handle_unknown='ignore', sparse=False))
+        ('encoder', OneHotEncoder(handle_unknown='ignore'))
     ])
 
-    preprocessor = ColumnTransformer([
-        ('num', numeric_pipeline, numeric_features),
-        ('cat', categorical_pipeline, categorical_features)
+    #FIXED create ColumnTransformer for preprocessing
+    preprocessor = ColumnTransformer(transformers=[
+        ('num', numeric_transformer, numeric_cols),
+        ('cat', categorical_transformer, categorical_cols)
     ])
 
-    # Full pipeline
-    clf_pipeline = Pipeline([
+    #FIXED classifier pipeline combining preprocessing and model
+    clf_pipeline = Pipeline(steps=[
         ('preprocessor', preprocessor),
-        ('classifier', RandomForestClassifier(random_state=42, n_jobs=-1))
+        ('classifier', RandomForestClassifier(random_state=42))
     ])
 
-    # Split data
+    #FIXED stratify parameter in train_test_split
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
-        test_size=0.2,
-        random_state=42,
-        stratify=y
+        X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # Train and predict
+    #FIXED fit and predict using the pipeline
     clf_pipeline.fit(X_train, y_train)
     y_pred = clf_pipeline.predict(X_test)
 
-    # Evaluate
-    print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
-    print("Classification report:")
-    print(classification_report(y_test, y_pred))
+    print("Accuracy:", accuracy_score(y_test, y_pred))
+    print("Classification Report:\n", classification_report(y_test, y_pred))
 
+#FIXED add main guard
 if __name__ == "__main__":
     main()

@@ -1,56 +1,50 @@
-# Summary of fixes:
-# - Removed dependency on external utils module and sys.path manipulation; use pathlib to locate project root.
-# - Added error handling for missing data file and missing target column.
-# - Added stratification in train_test_split to preserve class distribution.
-# - Added feature scaling using StandardScaler and pipeline to improve model performance.
-# - Specified solver and random_state in LogisticRegression for reproducibility.
-# - Set zero_division=0 in classification_report to avoid division-by-zero warnings.
-
+"""
+Summary of fixes:
+- Added file existence check for raw data file.
+- Added stratified train/test split to maintain class distribution.
+- Added feature scaling using StandardScaler before model training.
+- Set random_state in LogisticRegression for reproducibility.
+"""
 import os
-from pathlib import Path
+import sys
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler  #FIXED
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
 
-def main():
-    # Determine project root as the directory containing this script
-    project_root = Path(__file__).resolve().parent
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 
-    # Construct the path to the dataset
-    data_path = project_root / "datasets" / "diabetes_indicator" / "binary_health_indicators.csv"
-    if not data_path.exists():
-        raise FileNotFoundError(f"Data file not found: {data_path}")
+from utils import get_project_root
 
-    # Load the data
-    data = pd.read_csv(data_path)
-    target_col = "Diabetes_binary"
-    if target_col not in data.columns:
-        raise ValueError(f"Target column '{target_col}' not found in data")
+project_root = get_project_root()
 
-    X = data.drop(target_col, axis=1)
-    y = data[target_col]
+raw_data_file = os.path.join(project_root, "datasets", "diabetes_indicator", "binary_health_indicators.csv")
+#FIXED
+if not os.path.exists(raw_data_file):
+    #FIXED
+    raise FileNotFoundError(f"Raw data file not found: {raw_data_file}")
+data = pd.read_csv(raw_data_file)
 
-    # Split the data with stratification to preserve class distribution
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+X = data.drop('Diabetes_binary', axis=1)
+y = data['Diabetes_binary']
+#FIXED
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
 
-    # Define a pipeline with scaling and logistic regression
-    pipeline = Pipeline([
-        ("scaler", StandardScaler()),
-        ("classifier", LogisticRegression(solver="liblinear", max_iter=1000, random_state=42))
-    ])
+#FIXED
+scaler = StandardScaler()
+#FIXED
+X_train = scaler.fit_transform(X_train)
+#FIXED
+X_test = scaler.transform(X_test)
 
-    # Train the model
-    pipeline.fit(X_train, y_train)
+#FIXED
+model = LogisticRegression(max_iter=1000, random_state=42)
+model.fit(X_train, y_train)
 
-    # Make predictions and evaluate
-    y_pred = pipeline.predict(X_test)
-    report = classification_report(y_test, y_pred, zero_division=0)
-    print(report)
-
-if __name__ == "__main__":
-    main()
+y_pred = model.predict(X_test)
+print(classification_report(y_test, y_pred))

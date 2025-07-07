@@ -1,85 +1,53 @@
-"""
-Summary of fixes:
-- Added import for numpy to handle missing values.
-- Stripped whitespace from string columns to ensure consistent category values.
-- Replaced placeholder '?' with NaN and dropped rows with missing values.
-- Used separate LabelEncoder instances for each categorical feature to avoid shared state.
-- Encoded target variable 'salary' separately and preserved class names for reporting.
-- Dropped columns safely with errors='ignore' if they are not present.
-- Added file existence check for the input data file.
-- Wrapped execution in a main() function and used a __main__ guard.
-- Set n_jobs=-1 in RandomForestClassifier for faster training.
-"""
+# Summary of fixes:
+# 1. Handle missing values represented by '?', replaced with NaN and dropped incomplete rows.
+# 2. Drop unnecessary columns in-place.
+# 3. Encode categorical features using one-hot encoding instead of LabelEncoder.
+# 4. Encode target variable separately using LabelEncoder.
+# 5. Use stratified split to maintain class distribution.
+# 6. Improve classification report printing with target names.
 
 import os
 import sys
-import numpy as np
 import pandas as pd
+import numpy as np  #FIXED
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 
-def main():
-    # Ensure project root is on path
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    parent_dir = os.path.dirname(current_dir)
-    sys.path.append(parent_dir)
+from utils import get_project_root
 
-    # Import utility for locating project root
-    from utils import get_project_root
+project_root = get_project_root()
 
-    # Locate and verify data file
-    project_root = get_project_root()
-    raw_data_file = os.path.join(project_root, "datasets", "adult_data", "adult_data.csv")
-    if not os.path.isfile(raw_data_file):
-        raise FileNotFoundError(f"Data file not found: {raw_data_file}")
+raw_data_file = os.path.join(project_root, "datasets", "adult_data", "adult_data.csv")
+data = pd.read_csv(raw_data_file)
 
-    # Load data
-    data = pd.read_csv(raw_data_file)
+data.replace(' ?', np.nan, inplace=True)  #FIXED
+data.dropna(inplace=True)  #FIXED
 
-    # Drop irrelevant columns if present
-    data.drop(columns=['education', 'occupation'], errors='ignore', inplace=True)
+data.drop(columns=['education', 'occupation'], inplace=True)  #FIXED
 
-    # Clean whitespace and handle missing placeholders
-    obj_cols = data.select_dtypes(include=['object']).columns
-    for col in obj_cols:
-        data[col] = data[col].str.strip()
-    data.replace('?', np.nan, inplace=True)
-    data.dropna(inplace=True)
+X_raw = data.drop(columns=['salary'])  #FIXED
+y_raw = data['salary']  #FIXED
 
-    # Encode categorical features
-    feature_cols = data.columns.drop('salary')
-    for col in feature_cols:
-        if data[col].dtype == 'object':
-            encoder = LabelEncoder()
-            data[col] = encoder.fit_transform(data[col])
+le_target = LabelEncoder()  #FIXED
+y = le_target.fit_transform(y_raw)  #FIXED
 
-    # Encode target separately
-    target_encoder = LabelEncoder()
-    data['salary'] = target_encoder.fit_transform(data['salary'])
+X = pd.get_dummies(X_raw, drop_first=True)  #FIXED
 
-    # Split into features and target
-    X = data.drop(columns=['salary'])
-    y = data['salary']
+X_train, X_test, y_train, y_test = train_test_split(  #FIXED
+    X, y, test_size=0.2, random_state=42, stratify=y  #FIXED
+)
 
-    # Train/test split
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
+model = RandomForestClassifier(random_state=42)
+model.fit(X_train, y_train)
 
-    # Train model
-    model = RandomForestClassifier(random_state=42, n_jobs=-1)
-    model.fit(X_train, y_train)
-
-    # Evaluate
-    y_pred = model.predict(X_test)
-    acc = accuracy_score(y_test, y_pred)
-    print(f"Accuracy: {acc:.4f}")
-    print("Classification report:")
-    print(classification_report(y_test, y_pred, target_names=target_encoder.classes_))
-
-
-if __name__ == '__main__':
-    main()
+y_pred = model.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+print(f'Accuracy: {accuracy:.4f}')  #FIXED
+print('Classification report:')  #FIXED
+print(classification_report(y_test, y_pred, target_names=le_target.classes_))  #FIXED

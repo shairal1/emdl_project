@@ -1,16 +1,11 @@
-"""
-Summary of fixes applied to the original pipeline:
+# Summary of fixes:
+# - Removed dependency on utils.get_project_root and unused import sys; compute project_root via os.path. #FIXED
+# - Treated '?' as missing values in read_csv via na_values=['?']. #FIXED
+# - Included 'category' dtype in categorical_cols selection and used 'number' include for numeric_cols selection. #FIXED
+# - Set OneHotEncoder to sparse=False to output dense arrays. #FIXED
+# - Set n_jobs=-1 in RandomForestClassifier for parallel training. #FIXED
+# - Added __main__ guard and improved printing of classification report. #FIXED
 
-- Handled missing values represented as '?' by using na_values parameter in pd.read_csv.
-- Removed unnecessary sys.path manipulation and import of get_project_root from utils.
-- Simplified dataset path resolution to be relative to the script location (__file__).
-- Specified OneHotEncoder(sparse=False) to produce a dense array compatible with RandomForestClassifier.
-- Mapped target labels (salary) to binary values (0 and 1) after stripping whitespace.
-- Dropped any rows where target mapping resulted in NaN to ensure consistency.
-- Added stratify=y to train_test_split to maintain class balance in splits.
-- Set n_jobs=-1 and random_state=42 in RandomForestClassifier for reproducibility and performance.
-
-"""
 import os
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -21,53 +16,43 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 
-# Determine the directory where this script resides
-script_dir = os.path.dirname(os.path.abspath(__file__))
-raw_data_file = os.path.join(script_dir, "datasets", "adult_data", "adult_data.csv")
+# Compute project root instead of using utils.get_project_root
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, os.pardir))  #FIXED
 
-# Load data, treating '?' as missing values
-data = pd.read_csv(raw_data_file, na_values=['?'])
+raw_data_file = os.path.join(project_root, "datasets", "adult_data", "adult_data.csv")
+# Treat '?' as missing values
+data = pd.read_csv(raw_data_file, na_values=['?'])  #FIXED
 
-# Separate features and target
-X = data.drop(columns=['salary']).copy()
-# Strip whitespace and map salary to binary labels
-y = data['salary'].str.strip().map({'<=50K': 0, '>50K': 1})
+X = data.drop(columns=['salary'])
+y = data['salary']
 
-# Drop rows where target conversion failed (if any)
-mask = y.notna()
-X = X[mask]
-y = y[mask]
+# Include 'category' dtype and use 'number' include for numeric columns
+categorical_cols = X.select_dtypes(include=['object', 'category']).columns  #FIXED
+numeric_cols = X.select_dtypes(include=['number']).columns  #FIXED
 
-# Identify categorical and numeric columns
-categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
-numeric_cols = X.select_dtypes(include=['number']).columns.tolist()
-
-# Build preprocessing pipeline
 preprocessor = ColumnTransformer(
     transformers=[
         ('num', SimpleImputer(strategy='median'), numeric_cols),
         ('cat', Pipeline(steps=[
             ('imputer', SimpleImputer(strategy='most_frequent')),
-            ('onehot', OneHotEncoder(handle_unknown='ignore', sparse=False))
+            ('onehot', OneHotEncoder(handle_unknown='ignore', sparse=False))  #FIXED
         ]), categorical_cols)
     ]
 )
 
 pipeline = Pipeline(steps=[
     ('preprocessor', preprocessor),
-    ('classifier', RandomForestClassifier(random_state=42, n_jobs=-1))
+    ('classifier', RandomForestClassifier(random_state=42, n_jobs=-1))  #FIXED
 ])
 
-# Split data with stratification to preserve class ratios
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
-)
+def main():
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    pipeline.fit(X_train, y_train)
+    y_pred = pipeline.predict(X_test)
+    print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
+    print("Classification report:")  #FIXED
+    print(classification_report(y_test, y_pred, zero_division=0))  #FIXED
 
-# Fit the pipeline
-pipeline.fit(X_train, y_train)
-
-# Predict and evaluate
-y_pred = pipeline.predict(X_test)
-print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
-print("Classification report:")
-print(classification_report(y_test, y_pred))
+if __name__ == "__main__":
+    main()  #FIXED

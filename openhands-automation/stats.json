@@ -4,199 +4,219 @@
     "issue_fixed": true,
     "false_positive": false,
     "description": {
-      "issue_detection": "The AI summary explicitly mentions splitting the data early and applying preprocessing within the pipeline, acknowledging data leakage.",
-      "issue_fix": "The AI code splits the data into training and test sets before fitting the preprocessing steps, which correctly resolves the leakage issue.",
-      "false_positive": "No unnecessary pipeline changes were introduced that do not contribute to solving the data leakage problem."
-    }
+      "issue_detection": "The AI explanation clearly acknowledged data leakage concerns by discussing proper pipeline separation.",
+      "issue_fix": "The code splits the data before applying fit transformations, matching the human‐provided solution.",
+      "false_positive": "No unnecessary modifications were made to the ML pipeline that adversely impact the data leakage fix."
+    },
+    "lines_changed": 8
   },
   "distribution_shifts": {
     "issue_detected": false,
     "issue_fixed": false,
     "false_positive": true,
     "description": {
-      "issue_detection": "The AI’s summary does not mention or acknowledge the covariate/distribution shift issue.",
-      "issue_fix": "The AI fix does not implement any detection or reweighting mechanism to mitigate the artificially induced distribution shift, unlike the human fix.",
-      "false_positive": "The AI introduced changes (e.g. dropping columns, reordering imputation and splitting) that do not address the distribution shift issue and thus modify the pipeline in unrelated ways."
-    }
+      "issue_detection": "The AI’s summary and changes made no reference to detecting or mitigating covariate/distribution shifts.",
+      "issue_fix": "Unlike the ground‐truth fix addressing distribution shifts (e.g. via reweighting/detection), the AI only modified preprocessing steps unrelated to the shift.",
+      "false_positive": "Several ML pipeline changes (e.g. dropping PassengerId, splitting before imputation, shuffling) were made even though they do not resolve the distribution shift issue."
+    },
+    "lines_changed": 7
   },
   "spurious_correlations": {
     "issue_detected": false,
     "issue_fixed": false,
-    "false_positive": false,
+    "false_positive": true,
     "description": {
-      "issue_detection": "The AI summary did not acknowledge or target spurious correlations specifically.",
-      "issue_fix": "The modifications (e.g., stratified split, handling missing values) improve robustness but do not address the removal of spurious correlations (e.g., via feature selection or cross-validation aimed at detecting superficial relationships).",
-      "false_positive": "The changes made were not extraneous or detrimental to the ML pipeline; they simply did not target the spurious correlations issue."
-    }
+      "issue_detection": "The AI summary did not mention or target spurious correlations.",
+      "issue_fix": "The modifications (stratification, file check, parallelism, formatting) do not address feature selection or overfitting issues related to spurious correlations.",
+      "false_positive": "The AI changed ML pipeline parameters unrelated to mitigating spurious correlations."
+    },
+    "lines_changed": 5
   },
   "representational_bias": {
     "issue_detected": false,
     "issue_fixed": false,
-    "false_positive": false,
+    "false_positive": true,
     "description": {
-      "issue_detection": "The AI summary and changes did not acknowledge or target representational bias.",
-      "issue_fix": "No steps were taken to mitigate or evaluate representational bias, unlike the human fix.",
-      "false_positive": "The modifications made were unrelated to the representational bias problem."
-    }
+      "issue_detection": "The AI summary and comments did not mention representational bias at all.",
+      "issue_fix": "The changes (target replacement, label encoding, dense conversion, extra logistic regression parameters) do not address representational bias.",
+      "false_positive": "The AI introduced modifications in the pipeline (e.g., label encoding changes) that are unrelated to the representational bias issue."
+    },
+    "lines_changed": 5
   },
   "cross_validation": {
     "issue_detected": true,
     "issue_fixed": true,
     "false_positive": false,
     "description": {
-      "issue_detection": "The AI summary clearly acknowledged the data leakage issue by explaining that undersampling and feature selection must occur inside the CV pipeline.",
-      "issue_fix": "The AI code correctly moved the sampling and feature selection into a pipeline used within cross-validation, just like the human fix.",
-      "false_positive": "No unnecessary changes were made that affected the ML pipeline."
-    }
+      "issue_detection": "AI acknowledged the problem by moving under-sampling and feature selection into a pipeline.",
+      "issue_fix": "The changes (pipeline construction and use of StratifiedKFold inside cross-validation) resolve the data leakage issue as intended.",
+      "false_positive": "No modifications unrelated to the ML pipeline were introduced; all fixes directly address the cross_validation issue."
+    },
+    "lines_changed": 3
   },
   "inductive_bias": {
-    "issue_detected": false,
-    "issue_fixed": false,
-    "false_positive": false,
-    "description": {
-      "issue_detection": "The AI summary did not mention or target the inductive bias issue (i.e. fixed C leading to potential underfitting/overfitting).",
-      "issue_fix": "The AI code still uses a fixed regularization parameter (C=1e-4) without hyperparameter tuning, unlike the human fix.",
-      "false_positive": "The additional changes (target encoding, missing value handling) are unrelated and do not impact the inductive bias problem."
-    }
-  },
-  "data_splitting": {
     "issue_detected": true,
     "issue_fixed": true,
     "false_positive": false,
     "description": {
-      "issue_detection": "The AI summary explicitly addressed data splitting and preventing data leakage.",
-      "issue_fix": "The AI code splits the raw data before preprocessing, matching the human fix's approach.",
-      "false_positive": "No unrelated modifications affecting the ML pipeline were introduced."
-    }
+      "issue_detection": "The AI summary explicitly mentioned adjusting the regularization strength (C) to counteract underfitting, which is the key manifestation of the inductive bias problem.",
+      "issue_fix": "Changing C from 1e-4 to 1.0 (along with proper data preprocessing) addresses the underfitting issue in a way equivalent to the human fix.",
+      "false_positive": "All modifications made by the AI target pipeline improvements relevant to the inductive bias issue; no unrelated changes were introduced."
+    },
+    "lines_changed": 13
+  },
+  "data_splitting": {
+    "issue_detected": false,
+    "issue_fixed": false,
+    "false_positive": false,
+    "description": {
+      "issue_detection": "The AI version made many modifications but did not address the data splitting stage error.",
+      "issue_fix": "The AI still applies featurization to the entire dataset before splitting, so the data leakage issue remains.",
+      "false_positive": "The modifications (e.g., __file__ fallback, label conversion, classification report improvements) were not related to the splitting problem."
+    },
+    "lines_changed": 5
   },
   "annotation_errors": {
     "issue_detected": false,
     "issue_fixed": false,
     "false_positive": false,
     "description": {
-      "issue_detection": "The AI summary and comments do not acknowledge or target annotation errors specifically.",
-      "issue_fix": "No changes were made to address potential mislabeling or biases in annotations compared to the ground-truth fix.",
-      "false_positive": "The modifications made did not introduce unrelated changes to the ML pipeline regarding annotation errors."
-    }
+      "issue_detection": "The AI summary did not acknowledge annotation errors (label misannotations) as described in the guide.",
+      "issue_fix": "The changes only adjust missing value imputation and encoding order, not addressing labeling/annotation errors.",
+      "false_positive": "The modifications made (imputations and encoding) are valid pipeline improvements and not changes to already correct code, even though they do not address the named annotation error issue."
+    },
+    "lines_changed": 4
   },
   "measurement_bias": {
     "issue_detected": true,
     "issue_fixed": true,
     "false_positive": false,
     "description": {
-      "issue_detection": "Although the AI summary didn’t explicitly mention measurement bias, its introduction of StandardScaler in the pipeline shows it was aiming to address differences in data granularity—a key aspect of measurement bias.",
-      "issue_fix": "By incorporating normalization through the pipeline (and stratified splitting), the AI fix mitigates the measurement bias issue in a manner equivalent to the human fix’s approach (which also applied scaling as part of its remedy).",
-      "false_positive": "No modifications were made that unnecessarily changed or degraded the ML pipeline with regard to the targeted measurement bias issue."
-    }
+      "issue_detection": "The AI summary and changes (e.g., adding StandardScaler) address measurement bias related to data granularity.",
+      "issue_fix": "The modifications (scaling, stratified split, etc.) resolve measurement bias similarly to the human fix.",
+      "false_positive": "All changes affect the ML pipeline positively towards mitigating measurement bias."
+    },
+    "lines_changed": 6
   },
   "aggregation_errors": {
     "issue_detected": true,
     "issue_fixed": true,
     "false_positive": false,
     "description": {
-      "issue_detection": "The AI summary clearly mentioned and addressed the aggregation error by removing the erroneous replacement of 'native-country'.",
-      "issue_fix": "The AI code removes the fixed mapping and applies proper text cleaning, effectively resolving the aggregation error as the human fix does.",
-      "false_positive": "No unrelated pipeline changes were introduced that affect the ML process."
-    }
+      "issue_detection": "The AI summary and changes explicitly address the aggregation error by removing the naive mapping of spatial data.",
+      "issue_fix": "The AI-fixed code replaces the incorrect aggregation (mapping native-country to a constant) with proper normalization (lowercasing and hyphen replacement) similar to the human fix.",
+      "false_positive": "All modifications directly contributed to resolving the aggregation error without affecting unrelated parts of the pipeline."
+    },
+    "lines_changed": 6
   },
   "robustness_to_data_quality": {
     "issue_detected": true,
-    "issue_fixed": true,
+    "issue_fixed": false,
     "false_positive": false,
     "description": {
-      "issue_detection": "The AI summary and changes directly address data quality issues (missing values, unseen categories, and noise injection).",
-      "issue_fix": "Although the AI version uses StandardScaler (instead of the human fix’s RobustScaler), it still implements preprocessing steps (imputation, encoding, feature scaling) that mitigate the impact of noise, which is an equally valid fix.",
-      "false_positive": "The modifications made were targeted at improving robustness to noisy and imperfect data and did not introduce irrelevant pipeline changes."
-    }
+      "issue_detection": "The AI summary and changes indicate an attempt to address data quality issues (e.g. handling unknown categories, seeding RNG), which shows it acknowledged robustness concerns.",
+      "issue_fix": "However, it did not add robust preprocessing for numeric data (e.g. imputation and robust scaling) as in the human fix, so the core robustness improvement is missing.",
+      "false_positive": "All modifications were intended to address issues in the ML pipeline and none were irrelevant to the robustness concern."
+    },
+    "lines_changed": 5
   },
   "inherited_bias": {
     "issue_detected": false,
     "issue_fixed": false,
-    "false_positive": false,
+    "false_positive": true,
     "description": {
-      "issue_detection": "The AI summary and code did not acknowledge or target inherited bias.",
-      "issue_fix": "The fairness mitigation (e.g., fairlearn reduction) present in the human fix is absent in the AI version.",
-      "false_positive": "Although the AI modified preprocessing, these changes were unrelated to the inherited bias issue."
-    }
+      "issue_detection": "The AI summary and changes did not acknowledge or target inherited bias.",
+      "issue_fix": "No fairness mitigation (e.g., use of sensitive features or bias mitigators) was applied.",
+      "false_positive": "The modifications (missing values, scaler, etc.) changed the pipeline but did not address inherited bias."
+    },
+    "lines_changed": 5
   },
   "hyperparameter_bias": {
     "issue_detected": false,
     "issue_fixed": false,
     "false_positive": true,
     "description": {
-      "issue_detection": "The AI summary did not acknowledge hyperparameter bias nor target arbitrary hyperparameters.",
-      "issue_fix": "The AI code retains fixed hyperparameters instead of applying a systematic search (e.g., grid search) as in the human fix.",
-      "false_positive": "The AI introduced other pipeline changes (feature selection, data filtering) that are unrelated to the hyperparameter bias issue."
-    }
+      "issue_detection": "The AI summary and changes did not explicitly target hyperparameter bias—it did not switch to systematic hyperparameter optimization.",
+      "issue_fix": "Instead of addressing hyperparameter bias via methods like grid search or cross‐validation, the AI merely tweaked the hyperparameters, leaving the bias issue unaddressed.",
+      "false_positive": "Several modifications (e.g., target change, column drops, stratification, and join method) affect the pipeline but are unrelated to resolving hyperparameter bias."
+    },
+    "lines_changed": 7
   },
   "specification_bias": {
     "issue_detected": false,
     "issue_fixed": false,
-    "false_positive": false,
+    "false_positive": true,
     "description": {
-      "issue_detection": "The AI summary did not acknowledge or target specification bias.",
-      "issue_fix": "The AI code changes did not address the removal of proxy/protected attributes as done in the human fix.",
-      "false_positive": "The modifications introduced by the AI were unrelated to specification bias and did not affect the necessary pipeline changes."
-    }
+      "issue_detection": "The AI's summary and code did not mention or target specification bias (removal of proxy attributes) at all.",
+      "issue_fix": "The AI changes address other improvements but do not remove protected attributes or associated proxies, so the specification bias issue remains.",
+      "false_positive": "The modifications affect the ML pipeline (missing value handling, dtype selection, OneHotEncoder settings, etc.) but are unrelated to the specification bias problem."
+    },
+    "lines_changed": 6
   },
   "data_anonymization": {
     "issue_detected": false,
     "issue_fixed": false,
     "false_positive": false,
     "description": {
-      "issue_detection": "The AI's summary and changes do not acknowledge the incorrect anonymization; it merely drops columns rather than addressing privacy with differential privacy.",
-      "issue_fix": "Instead of preserving feature utility through controlled anonymization, the AI version removes key features, which does not resolve the named data anonymization issue as in the human fix.",
-      "false_positive": "The changes affect the core ML pipeline with respect to anonymization and do not simply modify unrelated aspects."
-    }
+      "issue_detection": "The AI’s summary and changes did not identify the core anonymization issue; it simply dropped columns as in the original.",
+      "issue_fix": "Instead of applying a privacy‐preserving transformation (e.g. differential privacy) as in the human fix, the AI kept the flawed approach of removing key features.",
+      "false_positive": "The modifications were aimed at data pipeline improvements unrelated to proper anonymization and did not affect the ML pipeline in a beneficial way with respect to the anonymization issue."
+    },
+    "lines_changed": 14
   },
   "data_filtering": {
     "issue_detected": false,
     "issue_fixed": false,
-    "false_positive": false,
+    "false_positive": true,
     "description": {
-      "issue_detection": "The AI’s summary did not acknowledge the need to split the data before filtering to maintain representative distributions.",
-      "issue_fix": "The AI code still applies filtering on the whole dataset prior to the train‐test split, unlike the human fix that filters separately for each set.",
-      "false_positive": "The modifications were intended to address filtering but actually altered the pipeline in a way that fails to resolve the filtering error."
-    }
+      "issue_detection": "The AI summary and changes did not acknowledge or address the problem of filtering before splitting.",
+      "issue_fix": "The filtering is still applied on the full dataset before splitting, unlike the human fix that applies proportional filtering separately.",
+      "false_positive": "The AI made improvements (dropna, stratify, encoder param, zero_division) that are unrelated to resolving the data filtering issue."
+    },
+    "lines_changed": 4
   },
   "data_imputation": {
     "issue_detected": true,
     "issue_fixed": true,
     "false_positive": false,
     "description": {
-      "issue_detection": "The AI summary explicitly acknowledged data imputation issues and outlined changes to address them.",
-      "issue_fix": "The AI code replaces ad-hoc imputation with separate pipelines using median imputation for numeric features and most frequent for categorical features, which is an equally valid fix.",
-      "false_positive": "No unrelated modifications were made to the ML pipeline that did not help resolve the imputation issue."
-    }
+      "issue_detection": "The AI summary explicitly mentioned imputation issues and reworked the pipeline accordingly.",
+      "issue_fix": "The AI changes replace the faulty manual imputation with a ColumnTransformer and separate pipelines for numeric (using median) and categorical (using most_frequent then OneHotEncoder), which is a valid fix for data imputation.",
+      "false_positive": "All modifications directly address the ML pipeline and imputation concerns."
+    },
+    "lines_changed": 7
   },
   "data_slicing": {
     "issue_detected": false,
     "issue_fixed": false,
-    "false_positive": false,
+    "false_positive": true,
     "description": {
-      "issue_detection": "The AI summary and changes did not acknowledge or attempt to address the data slicing evaluation issue.",
-      "issue_fix": "The AI's changes improved preprocessing and target encoding but did not add the necessary slicing performance evaluation code.",
-      "false_positive": "No modifications were made that adversely affected the ML pipeline; the changes simply did not target the data slicing problem."
-    }
+      "issue_detection": "The AI summary discusses data slicing, but its code does not address the slicing evaluation (e.g., grouping and reporting metrics on slices).",
+      "issue_fix": "The AI changes focus on label encoding, feature selection, and preprocessing pipelines rather than adding the slice-specific evaluation loop present in the human fix.",
+      "false_positive": "The modifications (e.g., dropping 'dob', updating pipelines, using solver='liblinear') alter the ML pipeline but do not solve the data slicing issue."
+    },
+    "lines_changed": 8
   },
   "preprocessing_order": {
     "issue_detected": true,
-    "issue_fixed": false,
-    "false_positive": true,
+    "issue_fixed": true,
+    "false_positive": false,
     "description": {
-      "issue_detection": "The AI summary explicitly mentioned moving scaling before SMOTE to address preprocessing order.",
-      "issue_fix": "However, the AI code applies feature selection before scaling and oversampling, differing from the human fix that applies SMOTE on the unaltered training data before the pipeline.",
-      "false_positive": "The AI introduced changes to the ordering of feature selection that are unnecessary and do not match the ground-truth solution."
-    }
+      "issue_detection": "The AI summary clearly acknowledged the need to reorder steps in the pipeline.",
+      "issue_fix": "The AI changes (scaling before SMOTE, then feature selection, plus stratified split and random_state) match the human fix.",
+      "false_positive": "No modifications were made to correctly-ordered parts; all changes address the issue directly."
+    },
+    "lines_changed": 5
   },
   "shortcut_learning": {
     "issue_detected": false,
     "issue_fixed": false,
     "false_positive": true,
     "description": {
-      "issue_detection": "The AI summary did not address shortcut learning; it listed unrelated fixes.",
-      "issue_fix": "The modifications (e.g., switching to regression, one-hot encoding) do not mitigate reliance on spurious correlations as aimed by shortcut learning fixes.",
-      "false_positive": "The changes affect the ML pipeline (changing target type and encoding) without addressing the shortcut learning issue."
-    }
+      "issue_detection": "The AI summary and changes did not acknowledge or target shortcut learning specifically.",
+      "issue_fix": "The modifications (e.g., splitting before encoding, dropping missing values, switching to regressor) do not address spurious correlation or feature reliance.",
+      "false_positive": "Several pipeline changes were made that affect data handling but are unrelated to mitigating shortcut learning."
+    },
+    "lines_changed": 13
   }
 }

@@ -16,7 +16,7 @@ Can you please identify potential issues in this pipeline and fix them?
 
 ##CODE##
 
-Please write the corrected code to ##OUTPUT_FILE## and summary of your fixes in the start of the file as comments.
+Please write the corrected code to ##OUTPUT_FILE## and summary of your fixes in the start of the file as comments, Mark every line you modify with the tag #FIXED at top.
 
 You must not run any commands externaly, you just write the file to fixed.py, you have nothing to do with data or util.py anything.
 Don't prompt me to run any commands, just write the file to fixed.py. I trust current directory.
