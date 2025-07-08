@@ -1,3 +1,4 @@
+#%%
 """
 Comprehensive Code Evaluator
 Combines static and dynamic analysis for complete code evaluation
@@ -5,7 +6,9 @@ Combines static and dynamic analysis for complete code evaluation
 import sys
 import os
 from typing import Dict, Any
-
+from pathlib import Path
+from typing import List
+import logging
 # Add the src directory to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -20,7 +23,7 @@ from dynamic_analysis.execution_metrics import (
 from utils.file_utils import load_code_from_file
 
 
-def evaluate_code(correct_code_path: str, generated_code_path: str, 
+def evaluate_code(correct_code: str, generated_code: str, 
                  run_dynamic_analysis: bool = True) -> Dict[str, Any]:
     """
     Comprehensive evaluation of code combining static and dynamic analysis.
@@ -34,8 +37,7 @@ def evaluate_code(correct_code_path: str, generated_code_path: str,
         Dictionary with comprehensive evaluation results
     """
     # Load code files
-    correct_code = load_code_from_file(correct_code_path)
-    generated_code = load_code_from_file(generated_code_path)
+    
     
     if correct_code is None or generated_code is None:
         raise ValueError("Could not load one or both code files")
@@ -43,7 +45,7 @@ def evaluate_code(correct_code_path: str, generated_code_path: str,
     # Static Analysis
     similarity = calculate_similarity(correct_code, generated_code)
     code_structure = analyze_code_structure(correct_code, generated_code)
-    code_quality = analyze_code_quality(correct_code, generated_code)
+    #code_quality = analyze_code_quality(correct_code, generated_code)
     ml_analysis = analyze_ml_components(correct_code, generated_code)
     ml_issues = detect_ml_issues(ml_analysis)
 
@@ -51,7 +53,7 @@ def evaluate_code(correct_code_path: str, generated_code_path: str,
     static_results = {
         'similarity': similarity,
         'code_structure': code_structure,
-        'code_quality': code_quality,
+        #'code_quality': code_quality,
         'ml_analysis': ml_analysis,
         'ml_issues': ml_issues
     }
@@ -71,7 +73,7 @@ def evaluate_code(correct_code_path: str, generated_code_path: str,
     results = {
         'static_analysis': static_results,
         'dynamic_analysis': dynamic_results,
-        'overall_assessment': calculate_overall_assessment(static_results, dynamic_results)
+        #'overall_assessment': calculate_overall_assessment(static_results, dynamic_results)
     }
 
     return results
@@ -181,10 +183,10 @@ def print_evaluation_report(results: Dict[str, Any]) -> None:
     print(f"AST nodes in generated code: {static['code_structure']['generated']}")
     print(f"Difference: {static['code_structure']['difference']} nodes")
 
-    print("\nCODE QUALITY:")
-    print(f"Pylint score (correct): {static['code_quality']['correct']:.2f}/10")
-    print(f"Pylint score (generated): {static['code_quality']['generated']:.2f}/10")
-    print(f"Difference: {static['code_quality']['difference']:.2f} points")
+    #print("\nCODE QUALITY:")
+    #print(f"Pylint score (correct): {static['code_quality']['correct']:.2f}/10")
+    #print(f"Pylint score (generated): {static['code_quality']['generated']:.2f}/10")
+    #print(f"Difference: {static['code_quality']['difference']:.2f} points")
 
     # ML Analysis Section
     print("\n" + "-"*30)
@@ -257,8 +259,8 @@ def print_evaluation_report(results: Dict[str, Any]) -> None:
             print(f"Memory usage (generated): {dynamic['memory_usage']['generated']:.2f} MB")
             print(f"Memory difference: {dynamic['memory_usage']['difference']:.2f} MB")
 
-            print(f"\nSuccess rate (correct): {dynamic['success_rate']['correct']}")
-            print(f"Success rate (generated): {dynamic['success_rate']['generated']}")
+            #print(f"\nSuccess rate (correct): {dynamic['success_rate']['correct']}")
+            #print(f"Success rate (generated): {dynamic['success_rate']['generated']}")
 
             # ML Metrics from execution
             if dynamic['ml_metrics']['correct'] or dynamic['ml_metrics']['generated']:
@@ -273,21 +275,60 @@ def print_evaluation_report(results: Dict[str, Any]) -> None:
                         print(f"  {metric.capitalize()}: {correct_val} (correct) vs {generated_val} (generated)")
 
     # Overall Assessment Section
-    assessment = results['overall_assessment']
+    #assessment = results['overall_assessment']
     
-    print("\n" + "-"*30)
-    print("OVERALL ASSESSMENT")
-    print("-"*30)
+    #print("\n" + "-"*30)
+    #print("OVERALL ASSESSMENT")
+    #print("-"*30)
 
-    print(f"Similarity Score: {assessment['similarity_score']:.2f}/1.0")
-    print(f"Code Quality Score: {assessment['quality_ratio']:.2f}/1.0")
-    print(f"ML Correctness Score: {assessment['ml_correctness_score']:.2f}/1.0")
-    print(f"Execution Score: {assessment['execution_score']:.2f}/1.0")
-    print(f"Overall Score: {assessment['overall_score']:.1f}/10.0")
-    print(f"\nVerdict: {assessment['verdict']}")
+    #print(f"Similarity Score: {assessment['similarity_score']:.2f}/1.0")
+    #print(f"Code Quality Score: {assessment['quality_ratio']:.2f}/1.0")
+    #print(f"ML Correctness Score: {assessment['ml_correctness_score']:.2f}/1.0")
+    #print(f"Execution Score: {assessment['execution_score']:.2f}/1.0")
+    #print(f"Overall Score: {assessment['overall_score']:.1f}/10.0")
+    #print(f"\nVerdict: {assessment['verdict']}")
     
     print("="*70)
+def gather_examples_with_fixed_code(root: Path) -> List[Dict[str, str]]:
+    examples: List[Dict[str, str]] = []
+    for script in root.glob("pipelines/*/example-0.py"):
+        try:
+            ai_fixed_path = script.parent / "fixed.py"
+            fixed_path = script.parent / "example-0-fixed.py"
+            explation_path = script.parent / "example-0-explanation.md"
 
+            if not ai_fixed_path.exists():
+                logging.info("Skipping %s, fixed.py not exists.", script.relative_to(root))
+                continue
+
+            if not fixed_path.exists():
+                logging.info("Skipping %s, example-0-fixed.py not exists.", script.relative_to(root))
+                continue
+
+            if not explation_path.exists():
+                logging.info("Skipping %s, example-0-explanation.md not exists.", script.relative_to(root))
+                continue
+
+            content = script.read_text(encoding="utf-8")
+            ai_fixed = ai_fixed_path.read_text(encoding="utf-8")
+            fixed =  fixed_path.read_text(encoding="utf-8")
+            explanation =  explation_path.read_text(encoding="utf-8")
+            
+
+            examples.append(
+                {
+                    "name": script.parent.name,
+                    "path": script.parent,
+                    "content": content,
+                    "ai_fixed_content": ai_fixed,
+                    "fixed_content": fixed,
+                    "explanation": explanation
+                }
+            )
+            logging.info("Loaded %s", script.relative_to(root))
+        except Exception:
+            logging.exception("Unable to read %s", script)
+    return examples
 
 if __name__ == "__main__":
     '''if len(sys.argv) != 3:
@@ -303,7 +344,79 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error during evaluation: {e}")
         sys.exit(1) '''
-    correct_code_path = "example_code/corrected_code/correct_code.py"
-    generated_code_path = "example_code/generated_code/generated_code.py"
-    results = evaluate_code(correct_code_path, generated_code_path)
-    print_evaluation_report(results)
+    root = Path(__file__).parent.parent.parent / "openhands-automation"
+    examples = gather_examples_with_fixed_code(root)
+
+    '''for example in examples:
+        correct_code = example['fixed_content']
+        generated_code = example['ai_fixed_content']
+        #print(example['name'])
+        code=generated_code
+        code = code.replace('\x00', '')
+
+        results = evaluate_code(correct_code, generated_code)
+        print_evaluation_report(results)'''
+    import pandas as pd
+    import ast
+    import json
+
+       
+    results_list = []
+    i=0
+    import pandas as pd
+import json
+
+results_list = []
+for i, example in enumerate(examples, 1):
+    correct_code = example['fixed_content']
+    generated_code = example['ai_fixed_content']
+    code = generated_code.replace('\x00', '')
+    results = evaluate_code(correct_code, generated_code)
+    static = results['static_analysis']
+    dynamic = results['dynamic_analysis']
+
+    # Collect metrics
+    row = {
+        "Example": example['name'],
+       # "Line Similarity": static['similarity']['line_similarity'],
+        #"Char Similarity": static['similarity']['char_similarity'],
+        #"AST Node Diff": static['code_structure']['difference'],
+        #"ML Issues Count": len(static['ml_issues']),
+        #"ML Issues": "; ".join(static['ml_issues']),
+        "Extra imports in Generated code": json.dumps(static['ml_analysis']['imports']['differences']['extra']),
+        "Missing imports in Generated code": json.dumps(static['ml_analysis']['imports']['differences']['missing']),
+        #"Extra sklearn components": json.dumps(static['ml_analysis']['sklearn_components']['differences']['extra']),
+        #"Missing sklearn components": json.dumps(static['ml_analysis']['sklearn_components']['differences']['missing']),
+        #"Extra preprocessing steps": json.dumps(static['ml_analysis']['preprocessing']['differences']['extra']),
+        #"Missing preprocessing steps": json.dumps(static['ml_analysis']['preprocessing']['differences']['missing']),
+    }
+
+    # Add dynamic analysis if present
+    if dynamic and 'execution_time' in dynamic:
+        row["Execution Time Diff"] = dynamic['execution_time']['difference']
+    else:
+        row["Execution Time Diff"] = None
+
+    if dynamic and 'memory_usage' in dynamic:
+        row["Memory Usage Diff"] = dynamic['memory_usage']['difference']
+    else:
+        row["Memory Usage Diff"] = None
+
+  
+
+    results_list.append(row)
+
+    if i > 5:  # Remove or adjust as needed
+        break
+
+# Convert to DataFrame after the loop
+df = pd.DataFrame(results_list)
+
+# Save as CSV
+df.to_csv("comprehensive_report.csv", index=False)
+
+# Save as LaTeX table (for LaTeX papers)
+df.to_latex("comprehensive_report.tex", index=False)
+
+# Print as Markdown table (for web or easy copy-paste)
+#print(df.to_markdown(index=False))
