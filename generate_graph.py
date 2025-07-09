@@ -27,10 +27,11 @@ Each line should contain:
 [Class Name]: [list of problem descriptions as they appear]: [number of lines changed] — [Total number of lines in this class]
 
 Ensure:
- -remove any ':' in the problem descriptions
+- remove any ':' in the problem descriptions and make sure they only exist between description and number of lines changed
 - The problem descriptions are **verbatim** from the original text.
 - Each problem is listed under only one class.
 - The total line count per class is accurate.
+- use ',' to separate between problems in class
 
 Use this input text (between triple backticks):
 ```{text}```"""
@@ -42,7 +43,7 @@ Use this input text (between triple backticks):
     print(response.text)
     
     # Save the response to a file
-    with open("problem_classes.txt", "w", encoding="utf-8") as f:
+    with open("problem_classes_2.txt", "w", encoding="utf-8") as f:
         f.write(response.text)
 
 def process_response(text: str) -> dict:
@@ -65,7 +66,6 @@ def process_response(text: str) -> dict:
         else:
             if line.strip():
                 # try:
-                print(line.split("â€”")[-1])
                 total_count = int(line.split("—")[-1].strip())
                 problem_classes[class_name]['total'] = total_count
                 problem_description = line.split("—")[0].strip()
@@ -113,7 +113,8 @@ def draw_graph():
     plt.tight_layout()
     plt.show()
 
-# with open("problem_classes.txt", 'r', encoding='utf-8') as f:
-#     response = f.read()
+with open("problem_classes_2.txt", 'r', encoding='utf-8') as f:
+    response = f.read()
 
-generate_graph()
+process_response(response)
+draw_graph()
