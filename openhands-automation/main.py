@@ -29,7 +29,7 @@ CHECK_INTERVAL = 5
 
 def gather_examples(root: Path) -> List[Dict[str, str]]:
     examples: List[Dict[str, str]] = []
-    for script in root.glob("pipelines/*/example-0.py"):
+    for script in root.glob("pipelines/*/example-0-fixed.py"):
         try:
             fixed_path = script.parent / "fixed.py"
             if fixed_path.exists():
