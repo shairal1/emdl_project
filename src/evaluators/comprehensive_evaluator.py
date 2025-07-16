@@ -9,6 +9,8 @@ from typing import Dict, Any
 from pathlib import Path
 from typing import List
 import logging
+
+from pandas.plotting import plot_params
 # Add the src directory to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -21,6 +23,11 @@ from dynamic_analysis.execution_metrics import (
     analyze_execution_differences
 )
 from utils.file_utils import load_code_from_file
+import pandas as pd
+import json
+import ast
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 def evaluate_code(correct_code: str, generated_code: str, 
@@ -289,11 +296,11 @@ def print_evaluation_report(results: Dict[str, Any]) -> None:
     #print(f"\nVerdict: {assessment['verdict']}")
     
     print("="*70)
-def gather_examples_with_fixed_code(root: Path) -> List[Dict[str, str]]:
+def gather_examples_with_fixed_code(root: Path,model_selection:str) -> List[Dict[str, str]]:
     examples: List[Dict[str, str]] = []
-    for script in root.glob("pipelines/*/example-0.py"):
+    for script in root.glob("pipelines_old/*/example-0.py"):
         try:
-            ai_fixed_path = script.parent / "fixed.py"
+            ai_fixed_path = script.parent / model_selection
             fixed_path = script.parent / "example-0-fixed.py"
             explation_path = script.parent / "example-0-explanation.md"
 
@@ -345,9 +352,11 @@ if __name__ == "__main__":
         print(f"Error during evaluation: {e}")
         sys.exit(1) '''
     root = Path(__file__).parent.parent.parent / "openhands-automation"
-    examples = gather_examples_with_fixed_code(root)
+    model={'openhands':'fixed','gemini':'example-0_Gemini'}
+    selected_model='openhands'
+    examples = gather_examples_with_fixed_code(root,model[selected_model])
 
-    '''for example in examples:
+    ''' for example in examples:
         correct_code = example['fixed_content']
         generated_code = example['ai_fixed_content']
         #print(example['name'])
@@ -356,67 +365,140 @@ if __name__ == "__main__":
 
         results = evaluate_code(correct_code, generated_code)
         print_evaluation_report(results)'''
-    import pandas as pd
-    import ast
-    import json
 
        
     results_list = []
-    i=0
-    import pandas as pd
-import json
+    results_list_ml = []
+    for i, example in enumerate(examples):
+        correct_code = example['fixed_content']
+        generated_code = example['ai_fixed_content']
+        #generated_code = generated_code.replace('\x00', '')
+        results = evaluate_code(correct_code, generated_code)
+        static = results['static_analysis']
+        dynamic = results['dynamic_analysis']
 
-results_list = []
-for i, example in enumerate(examples, 1):
-    correct_code = example['fixed_content']
-    generated_code = example['ai_fixed_content']
-    code = generated_code.replace('\x00', '')
-    results = evaluate_code(correct_code, generated_code)
-    static = results['static_analysis']
-    dynamic = results['dynamic_analysis']
+        # Collect general metrics
+        row = {
+            "Example": example['name'],
+            "Line Similarity": static['similarity']['line_similarity'],
+            "Char Similarity": static['similarity']['char_similarity'],
+            "AST Node Diff": static['code_structure']['difference'],
+            "ML Issues Count": len(static['ml_issues']),
+            "ML Issues": "; ".join(static['ml_issues'])
+        }
 
-    # Collect metrics
-    row = {
-        "Example": example['name'],
-       # "Line Similarity": static['similarity']['line_similarity'],
-        #"Char Similarity": static['similarity']['char_similarity'],
-        #"AST Node Diff": static['code_structure']['difference'],
-        #"ML Issues Count": len(static['ml_issues']),
-        #"ML Issues": "; ".join(static['ml_issues']),
-        "Extra imports in Generated code": json.dumps(static['ml_analysis']['imports']['differences']['extra']),
-        "Missing imports in Generated code": json.dumps(static['ml_analysis']['imports']['differences']['missing']),
-        #"Extra sklearn components": json.dumps(static['ml_analysis']['sklearn_components']['differences']['extra']),
-        #"Missing sklearn components": json.dumps(static['ml_analysis']['sklearn_components']['differences']['missing']),
-        #"Extra preprocessing steps": json.dumps(static['ml_analysis']['preprocessing']['differences']['extra']),
-        #"Missing preprocessing steps": json.dumps(static['ml_analysis']['preprocessing']['differences']['missing']),
-    }
+        # Collect ML analysis details
+        row_2 = {
+            "Example": example['name'],
+            "Extra imports in Generated code": "\n".join(static['ml_analysis']['imports']['differences']['extra']),
+            "Missing imports in Generated code": "\n".join(static['ml_analysis']['imports']['differences']['missing']),
+            "Extra sklearn components": "\n".join(static['ml_analysis']['sklearn_components']['differences']['extra']),
+            "Missing sklearn components": "\n".join(static['ml_analysis']['sklearn_components']['differences']['missing']),
+            "Extra preprocessing steps": "\n".join(static['ml_analysis']['preprocessing']['differences']['extra']),
+            "Missing preprocessing steps": "\n".join(static['ml_analysis']['preprocessing']['differences']['missing']),
+        }
 
-    # Add dynamic analysis if present
-    if dynamic and 'execution_time' in dynamic:
-        row["Execution Time Diff"] = dynamic['execution_time']['difference']
-    else:
-        row["Execution Time Diff"] = None
+        # Add dynamic analysis if present
+        if dynamic and 'execution_time' in dynamic:
+            row["Execution Time Diff"] = dynamic['execution_time']['difference']
+        else:
+            row["Execution Time Diff"] = None
 
-    if dynamic and 'memory_usage' in dynamic:
-        row["Memory Usage Diff"] = dynamic['memory_usage']['difference']
-    else:
-        row["Memory Usage Diff"] = None
+        if dynamic and 'memory_usage' in dynamic:
+            row["Memory Usage Diff"] = dynamic['memory_usage']['difference']
+        else:
+            row["Memory Usage Diff"] = None
 
-  
+        # Add ML metrics if present
+        ml_metrics = dynamic.get('ml_metrics', {})
+        for metric in ['accuracy', 'precision', 'recall', 'f1_score']:
+            row[f"ML Metric {metric} (correct)"] = ml_metrics.get('correct', {}).get(metric)
+            row[f"ML Metric {metric} (generated)"] = ml_metrics.get('generated', {}).get(metric)
 
-    results_list.append(row)
+        results_list.append(row)
+        results_list_ml.append(row_2)
 
-    if i > 5:  # Remove or adjust as needed
-        break
 
-# Convert to DataFrame after the loop
-df = pd.DataFrame(results_list)
+    # Convert to DataFrames after the loop
+    df = pd.DataFrame(results_list)
+    df_ml = pd.DataFrame(results_list_ml)
 
-# Save as CSV
-df.to_csv("comprehensive_report.csv", index=False)
+    # Save as CSV
+    df.to_csv("comprehensive_report_general.csv", index=False)
+    df_ml.to_csv("comprehensive_report_ml.csv", index=False)
 
-# Save as LaTeX table (for LaTeX papers)
-df.to_latex("comprehensive_report.tex", index=False)
+    # Save as LaTeX table (for LaTeX papers)
+    df.to_latex("comprehensive_report_general.tex", index=False)
+    df_ml.to_latex("comprehensive_report_ml.tex", index=False)
 
-# Print as Markdown table (for web or easy copy-paste)
-#print(df.to_markdown(index=False))
+    dir_path = os.path.join('plots', selected_model)
+    os.makedirs(dir_path, exist_ok=True)
+    # Bar plot: Line Similarity per Example
+    plt.figure(figsize=(10, 6))
+    sns.barplot(x='Example', y='Line Similarity', data=df)
+    plt.xticks(rotation=90)
+    plt.title('Line Similarity per Example')
+    plt.tight_layout()
+    file_path = os.path.join(dir_path, 'plot_line_similarity.png')
+    plt.savefig(file_path)
+    plt.close()
+
+    # Bar plot: Char Similarity per Example
+    plt.figure(figsize=(10, 6))
+    sns.barplot(x='Example', y='Char Similarity', data=df)
+    plt.xticks(rotation=90)
+    plt.title('Char Similarity per Example')
+    plt.tight_layout()
+    file_path = os.path.join(dir_path, 'plot_char_similarity.png')
+    plt.savefig(file_path)
+    plt.close()
+    '''
+    # Bar plot: ML Issues Count per Example
+    plt.figure(figsize=(10, 6))
+    sns.barplot(x='Example', y='ML Issues Count', data=df)
+    plt.xticks(rotation=90)
+    plt.title('ML Issues Count per Example')
+    plt.tight_layout()
+    plt.savefig('plot_ml_issues_count.png')
+    plt.close()'''
+    # Turn dict to single numeric value (sum of absolute differences)
+    df['AST Node Diff Total'] = df['AST Node Diff'].apply(
+        lambda d: sum(abs(v) for v in d.values()) if isinstance(d, dict) else None
+    )
+
+    # Pie chart: AST Node Types Distribution
+    ast_types_count = {}
+    for ast_diff in df['AST Node Diff']:
+        if isinstance(ast_diff, dict):
+            for ast_type, count in ast_diff.items():
+                if ast_type in ast_types_count:
+                    ast_types_count[ast_type] += abs(count)
+                else:
+                    ast_types_count[ast_type] = abs(count)
+    
+    if ast_types_count:
+        plt.figure(figsize=(15, 8))
+        labels = list(ast_types_count.keys())
+        sizes = list(ast_types_count.values())
+        
+        '''# Create pie chart
+        plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
+        plt.title('Distribution of AST Node Type Changes')
+        plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle
+        plt.tight_layout()
+        plt.savefig('plot_ast_types_pie.png')
+        plt.close()'''
+        
+        # Also create a bar plot for better readability of large numbers
+        plt.figure(figsize=(15, 6))
+        plt.bar(labels, sizes)
+        plt.xticks(rotation=45, ha='right')
+        plt.title('AST Node Type Changes Count')
+        plt.ylabel('Count')
+        plt.tight_layout()
+        file_path = os.path.join(dir_path, 'plot_ast_types_bar.png')
+        plt.savefig(file_path)
+        plt.close()
+
+
+    
